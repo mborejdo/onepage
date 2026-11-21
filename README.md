@@ -209,14 +209,32 @@ runtime, so everything shares one Preact.
 | [`apps/onepage`](apps/onepage) | the binary: CLI, `onepage.toml`, dev loop and server, scaffold |
 | [`packages/pagekit`](packages/pagekit) | the engine: bundle, packages, tokens, CSS, CSP, checks, lint, tests |
 | [`packages/panelkit`](packages/panelkit) | not a crate: a token file and Preact components |
+| [`xtask`](xtask) | `cargo xtask assets`, dev only |
+
+## Assets
+
+The Preact runtime, the Tabler glyphs and the fonts are built from pinned upstream releases
+listed in [`assets.toml`](assets.toml): npm tarballs and GitHub releases, each checked against
+its sha256.
+
+```sh
+cargo xtask assets           # rebuild all, byte for byte
+cargo xtask assets preact    # or one: preact, tabler, inter, fira-code
+cargo xtask assets --check   # the files match [out], offline (CI)
+```
+
+To update one, bump its `version`, run it, and take the new `sha256` from the error (check it
+against the release). A new glyph is a name in `icons`. The fonts need
+[uv](https://docs.astral.sh/uv), which runs the pinned fonttools; nothing else does.
 
 ## Development
 
 ```sh
 cargo fmt --all --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-features
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
 cargo deny check
+cargo xtask assets --check
 for p in examples/*; do cargo run -- lint "$p"; done
 ```
 

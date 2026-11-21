@@ -63,19 +63,8 @@ Inter's `opsz` 32, Inter Display. No contextual alternates or ligatures (`->`, `
 as typed); `code`, `kbd`, `samp`, `pre` and `font-mono` have ligatures off whatever the face.
 Figures (`Gauge`, `Counter`, `Facts`, tab counts, numeric `Input`) use tabular digits.
 
-Rebuild (fonttools with brotli) from `InterVariable.ttf` (Inter 4.1) and `FiraCode-VF.ttf`
-(Fira Code 6.2):
-
-```sh
-U="U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,\
-U+2000-206F,U+20AC,U+2122,U+2190-2195,U+2212,U+2215,U+2248,U+2260,U+2264-2265,U+FEFF,U+FFFD"
-fonttools varLib.instancer InterVariable.ttf wght=300:700 -o inter.ttf
-pyftsubset inter.ttf --unicodes="$U" --flavor=woff2 --output-file=fonts/inter.woff2 \
-  --layout-features=ccmp,locl,mark,mkmk,kern,case,tnum,frac,numr,dnom
-fonttools varLib.instancer FiraCode-VF.ttf wght=300:700 -o fira.ttf
-pyftsubset fira.ttf --unicodes="$U" --flavor=woff2 --output-file=fonts/fira-code.woff2 \
-  --layout-features=ccmp,locl,mark,mkmk
-```
+Built from Inter 4.1 and Fira Code 6.2 by `cargo xtask assets` (pins, ranges and features in
+[`assets.toml`](../../assets.toml)).
 
 ## Components
 
@@ -112,8 +101,8 @@ caption faces.
 [LICENSE-tabler](LICENSE-tabler)): 24 x 24, 2px round stroke in `currentColor`. Names are
 Tabler's in camel case plus `Icon` (`downloadIcon`, `alertTriangleIcon`, `chartLineIcon`), so a
 page carries only what it imports. `GLYPHS` maps every Tabler name to its glyph, for a catalogue
-(it carries them all). To add one, copy its paths from Tabler's outline SVG into
-`src/glyphs.ts`.
+(it carries them all). To add one, add its name to `icons` in
+[`assets.toml`](../../assets.toml) and run `cargo xtask assets tabler`.
 
 ## MCP Apps: `panelkit/mcp`
 

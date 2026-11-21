@@ -40,6 +40,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - panelkit embeds Inter (display cut for headings) and Fira Code, latin subsets without
   contextual alternates or ligatures, about 113 KB in the page. Mono (`code`, `kbd`, `samp`,
   `pre`, `font-mono`) has ligatures off whatever the face.
+- `cargo xtask assets`: Preact, the Tabler glyphs and the panelkit fonts rebuilt byte for byte
+  from pinned, sha256-checked upstream releases in `assets.toml`; `--check` in CI.
 
 ### Changed
 

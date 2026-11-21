@@ -3,7 +3,8 @@
 # Content-Security-Policy pins the one inline script by its hash. No Node, no npm.
 [workspace]
 resolver = "3"
-members = ["apps/onepage", "packages/pagekit"]
+members = ["apps/onepage", "packages/pagekit", "xtask"]
+default-members = ["apps/onepage", "packages/pagekit"]
 
 [workspace.package]
 version = "0.1.0"
@@ -59,6 +60,11 @@ biome_rowan = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@
 rayon = "1"
 # `onepage test`: a JavaScript engine in Rust, behind the off-by-default `test` feature.
 boa_engine = "0.22"
+
+# xtask only: the npm tarballs and the font release zips, read in memory.
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 
 # The workspace's own crates.
 pagekit = { path = "packages/pagekit", version = "0.1.0" }

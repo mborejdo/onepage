@@ -1,9 +1,10 @@
-// The glyphs: Tabler Icons, outline style (MIT, https://tabler.io/icons, see LICENSE-tabler).
+// The glyphs: Tabler Icons 3.45.0, outline style (MIT, https://tabler.io/icons, see
+// LICENSE-tabler), written by `cargo xtask assets` from the `icons` in assets.toml.
 // One export per icon, Tabler's name in camel case with `Icon` behind it (`alert-triangle` is
 // `alertTriangleIcon`, `player-play` is `playerPlayIcon`), each its SVG paths on a 24 x 24
 // grid. `Icon` draws them with a 2px round stroke in the current colour. Imported by name, so a
 // page carries only the glyphs it names; `GLYPHS` (every one, by Tabler's name) is for a
-// catalogue and pulls in the lot. To add one, copy its paths from Tabler's outline SVG.
+// catalogue and pulls in the lot.
 
 import type { Glyph } from "./icon";
 

@@ -1,0 +1,24 @@
+[package]
+name = "xtask"
+description = "onepage's task runner: the vendored files rebuilt from the pins in assets.toml."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+flate2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar.workspace = true
+toml.workspace = true
+zip.workspace = true
