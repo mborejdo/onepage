@@ -18,9 +18,14 @@ use anyhow::{Context, Result};
 
 use crate::config::Config;
 
-/// Watch `dir` and rebuild it unminified on every change; with `port`, serve the result.
+/// Watch `dir` (and the packages its import map names, and its token file) and rebuild it
+/// unminified on every change; with `port`, serve the result.
 pub fn run(dir: &Path, port: Option<u16>) -> Result<()> {
-    let out = dir.join(Config::load(dir)?.out);
+    let config = Config::load(dir)?;
+    let out = dir.join(&config.out);
+    let mut watched = vec![dir.to_path_buf()];
+    watched.extend(config.imports.values().map(|p| dir.join(p)));
+    watched.extend(config.tokens.iter().map(|p| dir.join(p)));
     let folder = out.parent().unwrap_or(dir).to_path_buf();
     if let Some(port) = port {
         let listener = TcpListener::bind(("127.0.0.1", port))
@@ -32,7 +37,7 @@ pub fn run(dir: &Path, port: Option<u16>) -> Result<()> {
     }
     let mut seen = None;
     loop {
-        let now = snapshot(dir, &folder);
+        let now: Vec<_> = watched.iter().flat_map(|w| snapshot(w, &folder)).collect();
         if seen.as_ref() != Some(&now) {
             seen = Some(now);
             match crate::build(dir, None, false) {
@@ -44,9 +49,16 @@ pub fn run(dir: &Path, port: Option<u16>) -> Result<()> {
     }
 }
 
-/// Every file under `dir` with its modification time, leaving out `skip` and dot folders.
+/// Every file under `dir` (or `dir` itself, a file) with its modification time, leaving out
+/// `skip` and dot folders.
 fn snapshot(dir: &Path, skip: &Path) -> Vec<(PathBuf, SystemTime)> {
     let mut out = vec![];
+    if dir.is_file() {
+        if let Ok(time) = dir.metadata().and_then(|m| m.modified()) {
+            out.push((dir.to_path_buf(), time));
+        }
+        return out;
+    }
     let mut stack = vec![dir.to_path_buf()];
     while let Some(dir) = stack.pop() {
         for path in std::fs::read_dir(&dir)

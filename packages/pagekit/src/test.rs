@@ -3,12 +3,12 @@
 //! A test file calls `test(name, fn)` and `assert(condition, message)`; both are globals. The
 //! Preact runtime is loaded first, so a test may import from `preact` and `preact/hooks`.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Result, anyhow};
 use boa_engine::{Context, Source};
 
-use crate::{RUNTIME, bundle};
+use crate::{Page, RUNTIME, bundle};
 
 /// The globals a test file may read: what [`HARNESS`] defines.
 const GLOBALS: &[&str] = &["test", "assert"];
@@ -41,8 +41,11 @@ impl Outcome {
     }
 }
 
-/// Every `*.test.ts` and `*.test.tsx` under `root/src`, each bundled and run on its own.
-pub fn run(root: &Path) -> Result<Vec<Outcome>> {
+/// Every `*.test.ts` and `*.test.tsx` under the page's `src`, each bundled (with the page's
+/// import map and vendor folder) and run on its own.
+pub fn run(page: &Page) -> Result<Vec<Outcome>> {
+    let root = page.root.as_path();
+    let imports = page.resolver();
     let mut out = vec![];
     for path in crate::css::files(&root.join("src"))? {
         let name = path.file_name().unwrap_or_default().to_string_lossy();
@@ -56,8 +59,9 @@ pub fn run(root: &Path) -> Result<Vec<Outcome>> {
             wasm: false,
             glue: None,
             globals: GLOBALS,
+            imports: &imports,
         };
-        let script = bundle::bundle(root, &file, &options)?;
+        let script = bundle::bundle(root, &file, &options)?.script;
         let mut context = Context::default();
         let mut eval = |code: &str| {
             context
@@ -81,11 +85,12 @@ pub fn run(root: &Path) -> Result<Vec<Outcome>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn the_hello_example_tests_pass() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello");
-        let outcomes = run(&root).unwrap();
+        let outcomes = run(&Page::new(root)).unwrap();
         assert_eq!(outcomes.len(), 1);
         assert!(outcomes[0].passed(), "{:?}", outcomes[0].lines);
         assert_eq!(outcomes[0].lines.len(), 2);

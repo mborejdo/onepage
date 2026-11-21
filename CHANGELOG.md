@@ -2,6 +2,34 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow semver.
 
+## Unreleased
+
+### Added
+
+- `tokens = "tokens.toml"`: a design-token file (`[light]` and `[dark]` palettes of nine
+  colours, `[fonts]`, `[sizes]`, `[series]`, `[radii]`, `[space]`) written as CSS variables -
+  the light palette on `:root`, the dark one under `prefers-color-scheme: dark` and both under
+  `[data-theme=light|dark]` - and its colour names taught to the utilities (`bg-surface`,
+  `text-muted`, `border-border`, `bg-series-1`, with `/opacity`). The preflight's faces follow
+  `--font-sans` and `--font-mono`.
+- `[imports]`: an import map from a bare name to a package folder (its `package.json` says the
+  entry and the subpaths) or one file. A mapped package's modules are checked and scanned for
+  class names, and its `style` sheet comes with it, between the preflight and the utilities.
+- `vendor = "vendor"`: bare imports from a folder of unpacked npm packages, by `exports`
+  (subpaths, `*` patterns, the `browser`/`import`/`module`/`default` conditions), `module` or
+  `main`, including the packages' imports of each other. Vendored code is linked, not checked.
+- `preact/jsx-runtime` from the inlined runtime, and namespace imports of `preact`: every
+  package shares the page's one Preact.
+- `onepage dev` also watches the mapped packages and the token file.
+- `packages/panelkit`: the token file and a Preact component set (controls, cards, alerts,
+  facts, tabs, figures, a bar, split panes, a preview, Tabler glyphs) with an MCP Apps client,
+  `panelkit/mcp`. `examples/kit` shows every component.
+
+### Changed
+
+- `pagekit::bundle::bundle` returns the script and the modules it loaded;
+  `pagekit::css::generate` and `pagekit::test::run` take the page's style and page.
+
 ## 0.1.0 - unreleased
 
 The first release.

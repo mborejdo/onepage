@@ -1,0 +1,58 @@
+/* panelkit's base: what a utility cannot say. onepage puts it after the preflight and before
+   the utilities, so a utility on an element wins over it. The values are the token variables
+   (tokens.toml); the colours follow the scheme by themselves. */
+
+/* The page and every `[data-theme]` subtree: the ground and the ink of its scheme. */
+body,
+[data-theme] {
+  background-color: var(--ground);
+  color: var(--ink);
+}
+
+body {
+  margin: 0;
+  font: 14px/1.5 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+}
+
+a {
+  color: var(--accent);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A control inside a `Field` fills it; on its own it keeps its width. */
+.pk-field > .pk-input,
+.pk-field > .pk-select {
+  width: 100%;
+}
+
+/* The figures' motion: a gauge's fill grows in, a counter's changed digit flips. */
+@keyframes pk-grow-x { from { scale: 0 1; } }
+@keyframes pk-flip { from { transform: perspective(2em) rotateX(-90deg); } }
+@keyframes pk-flip-back { from { transform: perspective(2em) rotateX(90deg); } }
+.pk-grow-x { animation: pk-grow-x .4s ease-out both; transform-origin: left; }
+.pk-flip { animation: pk-flip .25s ease-out backwards; }
+.pk-flip-back { animation: pk-flip-back .25s ease-out backwards; }
+/* The split of a flap: a hairline across its middle. */
+.pk-flap::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  border-top: 1px solid color-mix(in oklab, var(--ground) 60%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pk-grow-x, .pk-flip, .pk-flip-back { animation: none; }
+}

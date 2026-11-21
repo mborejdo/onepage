@@ -74,7 +74,7 @@ error: src/app.tsx:3: uses JSX but does not import `h`; add `import { h } from "
 | JSX without `h`, `<>` without `Fragment` | classic JSX compiles to `h(...)`; without the import the page throws on first render |
 | an undeclared global | a typo or a missing import, otherwise a runtime `ReferenceError`; `WebAssembly` and `Worker` need `[wasm]` |
 | `import.meta` | the page is one classic script, which has none |
-| an import outside the page folder or from a package | only relative imports, `preact` and `preact/hooks` are bundled |
+| an import outside the page folder or from an unknown package | only relative imports, `preact` (and its hooks and JSX runtime) and the packages in `[imports]` or `vendor` are bundled |
 
 Exit codes: 0 done, 1 the page has a mistake, 2 onepage could not do what you asked (the
 reason is the one line on stderr).
@@ -90,6 +90,13 @@ out = "dist/index.html"      # where the page is written
 style = "src/style.css"      # a sheet appended after the utilities (default: none)
 favicon = "favicon.svg"      # an SVG inlined as the icon, replacing the shell's icon links
 title = "Hello"              # replaces the shell's <title>
+tokens = "tokens.toml"       # design tokens: CSS variables and utility colour names
+vendor = "../vendor"         # a folder of unpacked npm packages, for bare imports
+
+# The import map: a bare name to a package folder or to one file.
+[imports]
+panelkit = "../packages/panelkit"
+"d3-scale" = "../vendor/d3-scale/src/index.js"
 
 # Extra sources, added after the defaults of each directive.
 [csp]
@@ -117,22 +124,66 @@ manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'
 `style-src` is `'unsafe-inline'` instead when the markup has `style="..."` attributes, which no
 hash can cover. With `[wasm]`, `script-src` also has `'wasm-unsafe-eval'`.
 
+### Tokens
+
+`tokens` names a TOML file of design tokens, [`packages/panelkit/tokens.toml`](packages/panelkit/tokens.toml)
+for one: `[light]` and `[dark]` palettes of the same nine colours (`ground`, `ink`, `muted`,
+`accent`, `surface`, `border`, `ok`, `warn`, `stop`), `[fonts]` (`sans`, `mono`, `display`),
+`[sizes]` (`text`, `label`), and optionally `[series]` (`light` and `dark` lists of chart
+colours), `[radii]` and `[space]` (CSS lengths by name). The sheet starts with them as
+variables:
+
+```css
+:root{color-scheme:light dark;--font-sans:"Inter",ui-sans-serif,...;--radius-md:8px;--ground:#fbfaf7;...}
+@media (prefers-color-scheme: dark){:root:not([data-theme=light]){--ground:#17191f;...}}
+[data-theme=light]{color-scheme:light;--ground:#fbfaf7;...}
+[data-theme=dark]{color-scheme:dark;--ground:#17191f;...}
+```
+
+So the system picks the scheme, and `<html data-theme="dark">` (or any element's, for a
+subtree) overrides it. Each colour name and `series-1` to `series-n` is also a utility colour:
+`bg-surface`, `text-muted`, `border-border`, `bg-accent/15`, `fill-series-2`; a page writes no
+colour classes of its own.
+
+### Bare imports
+
+A bare import (`import { Card } from "panelkit"`, `"panelkit/mcp"`, `"@scope/name/sub"`)
+resolves through `[imports]` first, then `vendor`; `preact`, `preact/hooks` and
+`preact/jsx-runtime` always come from the inlined runtime, so the page and every package share
+one Preact.
+
+- `[imports]` is an import map, the shape of an HTML import map's `imports` and of a
+  `file:` dependency in `package.json`: a specifier or a package name to a folder or a file
+  (relative to the page). A file is the entry. A folder is a package: its `package.json` says
+  the entry and the subpaths, as below. A mapped package is the page's own code: its modules
+  run the checks, their class names count, and a `style` field in its `package.json` names a
+  sheet that comes with it.
+- `vendor` is a folder of npm packages as `npm pack` unpacks them (`<vendor>/<name>/` and
+  `<vendor>/@scope/<name>/`), already on disk: onepage has no network and no install. A
+  package's entry is its `exports` (subpaths, `*` patterns, the conditions `browser`, `import`,
+  `module` and `default`, in that order), else `module`, else `main`; a package's imports of
+  other packages resolve the same way. Vendored code is linked as it is, not checked. To pin an
+  entry, map the name to the file in `[imports]`.
+
 ## Examples
 
 - [`examples/hello`](examples/hello): a counter, a second module, the page's own sheet, an
   icon and a test file.
 - [`examples/wasm`](examples/wasm): fetches a 41-byte WebAssembly module and calls its `add`.
   `fetch` does not work from `file://`, so run it with `onepage dev examples/wasm --port 8000`.
+- [`examples/kit`](examples/kit): every [panelkit](packages/panelkit) component, with the
+  token file and the kit by its bare name; `#light` or `#dark` in the URL picks a scheme.
 
 ## How it works
 
 1. **Bundle.** swc parses each module, runs the checks, strips TypeScript and compiles JSX in
-   the classic runtime (`h`, `Fragment`). The swc bundler links the relative imports into one
-   module; each `import { ... } from "preact"` becomes `const { ... } = window.preact`. The
-   module is wrapped in a function and, for `build`, minified by the swc minifier with names mangled.
-2. **Style.** encre-css generates its preflight and the utilities for every class name in the
-   entry's folder and the shell; the `style` sheet follows; `build` strips comments and
-   indentation.
+   the classic runtime (`h`, `Fragment`). The swc bundler links the relative and bare imports
+   into one module; each `import { ... } from "preact"` becomes `const { ... } = window.preact`.
+   The module is wrapped in a function and, for `build`, minified by the swc minifier with
+   names mangled.
+2. **Style.** The token variables; encre-css's preflight; the mapped packages' sheets; the
+   utilities for every class name in the entry's folder, the mapped packages' modules and the
+   shell; then the `style` sheet. `build` strips comments and indentation.
 3. **Fill.** The sheet goes into `<!--css-->` as one `<style>`; the Preact runtime and the
    bundle into `<!--js-->` as one `<script>`; the title and the icon into `<head>`.
 4. **Lock.** The policy is computed from the finished file, so the hashes match byte for byte.
@@ -145,7 +196,8 @@ server over `std::net`. No live reload: refresh the browser.
 | crate | what |
 |---|---|
 | [`apps/onepage`](apps/onepage) | the binary: command line, `onepage.toml`, dev loop and server, page scaffold |
-| [`packages/pagekit`](packages/pagekit) | the engine: swc bundle, encre-css sheet, shell, CSP, checks, boa tests |
+| [`packages/pagekit`](packages/pagekit) | the engine: swc bundle, package resolution, tokens, encre-css sheet, shell, CSP, checks, boa tests |
+| [`packages/panelkit`](packages/panelkit) | not a crate: the token file and a Preact component set, imported by pages |
 
 ## Development
 
@@ -156,10 +208,12 @@ cargo test --all-features
 cargo deny check
 ```
 
-CI runs the same, plus the two example pages, uploaded as an artifact.
+CI runs the same, plus the example pages, uploaded as an artifact. `tokens`' tests check that
+panelkit's token file holds WCAG AA contrast in both schemes.
 
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT)
 at your option. The vendored Preact runtime in `packages/pagekit/assets` is MIT, see its
-[license](packages/pagekit/assets/LICENSE-preact).
+[license](packages/pagekit/assets/LICENSE-preact). panelkit's glyphs are Tabler Icons, MIT, see
+[their license](packages/panelkit/LICENSE-tabler).

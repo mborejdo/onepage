@@ -3,6 +3,7 @@
 //! Every key is optional; a missing file means every default. An unknown key or a malformed
 //! value is an error that names the file and the key.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -32,6 +33,12 @@ pub struct Config {
     pub csp: Csp,
     /// The WebAssembly opt-in.
     pub wasm: Option<Wasm>,
+    /// A token file: CSS variables for both schemes, and its colour names as utilities.
+    pub tokens: Option<PathBuf>,
+    /// A folder of unpacked npm packages, for bare imports.
+    pub vendor: Option<PathBuf>,
+    /// The import map: a bare specifier or package name to a package folder or a file.
+    pub imports: BTreeMap<String, PathBuf>,
 }
 
 impl Default for Config {
@@ -46,6 +53,9 @@ impl Default for Config {
             title: None,
             csp: Csp::default(),
             wasm: None,
+            tokens: None,
+            vendor: None,
+            imports: BTreeMap::new(),
         }
     }
 }
@@ -73,6 +83,9 @@ impl Config {
             title: self.title.clone(),
             csp: self.csp.clone(),
             wasm: self.wasm.clone(),
+            tokens: self.tokens.clone(),
+            imports: self.imports.clone(),
+            vendor: self.vendor.clone(),
             minify,
         }
     }
@@ -90,5 +103,11 @@ mod tests {
         assert_eq!(config.wasm.unwrap().files, [PathBuf::from("a.wasm")]);
         assert!(toml::from_str::<Config>("nmae = \"x\"").is_err());
         assert!(toml::from_str::<Config>("[csp]\nscript = []").is_err());
+        let config: Config = toml::from_str(
+            "tokens = \"t.toml\"\nvendor = \"../vendor\"\n[imports]\nkit = \"../kit\"\n",
+        )
+        .unwrap();
+        assert_eq!(config.imports["kit"], PathBuf::from("../kit"));
+        assert_eq!(config.vendor, Some(PathBuf::from("../vendor")));
     }
 }

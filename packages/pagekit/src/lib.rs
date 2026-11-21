@@ -17,9 +17,12 @@ pub mod bundle;
 pub mod check;
 pub mod css;
 pub mod html;
+pub mod packages;
 #[cfg(feature = "test")]
 pub mod test;
+pub mod tokens;
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -31,11 +34,14 @@ pub const CSS_SLOT: &str = "<!--css-->";
 /// The slot in the shell the script goes into.
 pub const JS_SLOT: &str = "<!--js-->";
 
-/// The Preact runtime, inlined before the bundle: `window.preact`, `window.preactHooks`.
+/// The Preact runtime, inlined before the bundle: `window.preact`, `window.preactHooks` and
+/// `window.preactJsx` (the automatic JSX runtime, for vendored packages compiled with it).
 pub const RUNTIME: &str = concat!(
     include_str!("../assets/preact.umd.js"),
     "\n",
     include_str!("../assets/hooks.umd.js"),
+    "\n",
+    include_str!("../assets/jsx.js"),
 );
 
 /// One page to build. Paths are relative to [`root`](Self::root).
@@ -57,6 +63,12 @@ pub struct Page {
     pub csp: Csp,
     /// The WebAssembly opt-in.
     pub wasm: Option<Wasm>,
+    /// A token file ([`tokens`]): CSS variables, and colour names for the utilities.
+    pub tokens: Option<PathBuf>,
+    /// The import map: a bare specifier or package name to a package folder or a file.
+    pub imports: BTreeMap<String, PathBuf>,
+    /// A folder of unpacked npm packages, for the bare imports the map does not name.
+    pub vendor: Option<PathBuf>,
     /// Minify the script and strip the sheet.
     pub minify: bool,
 }
@@ -73,7 +85,23 @@ impl Page {
             title: None,
             csp: Csp::default(),
             wasm: None,
+            tokens: None,
+            imports: BTreeMap::new(),
+            vendor: None,
             minify: true,
+        }
+    }
+
+    /// The import map and the vendor folder, joined to [`root`](Self::root).
+    #[must_use]
+    pub fn resolver(&self) -> packages::Imports {
+        packages::Imports {
+            map: self
+                .imports
+                .iter()
+                .map(|(k, v)| (k.clone(), self.root.join(v)))
+                .collect(),
+            vendor: self.vendor.as_ref().map(|v| self.root.join(v)),
         }
     }
 }
@@ -171,18 +199,56 @@ pub fn build(page: &Page) -> Result<Built> {
             page.shell.display()
         );
     }
+    let imports = page.resolver();
     let options = bundle::Options {
         minify: page.minify,
         host: "window",
         wasm: page.wasm.is_some(),
         glue: page.wasm.as_ref().and_then(|w| w.glue.clone()),
         globals: &[],
+        imports: &imports,
     };
-    let script = bundle::bundle(&page.root, &page.entry, &options)?;
+    let bundled = bundle::bundle(&page.root, &page.entry, &options)?;
+    let script = bundled.script;
     let src = page
         .root
         .join(page.entry.parent().unwrap_or_else(|| Path::new("")));
-    let mut sheet = css::generate(&css::sources(&src)?, &shell);
+    let mut sources = css::sources(&src)?;
+    // A mapped package's modules are the page's own code: their class names count, and its
+    // sheet (`style` in its package.json) comes with it. Vendored packages bring neither.
+    let mut base = vec![];
+    for kit in imports.kits() {
+        let used: Vec<_> = bundled
+            .modules
+            .iter()
+            .filter(|m| m.starts_with(&kit))
+            .collect();
+        if used.is_empty() {
+            continue;
+        }
+        for module in used {
+            sources.push(
+                std::fs::read_to_string(module)
+                    .with_context(|| format!("reading {}", module.display()))?,
+            );
+        }
+        if let Some(sheet) = packages::style(&kit)? {
+            base.push(
+                std::fs::read_to_string(&sheet)
+                    .with_context(|| format!("reading {}", sheet.display()))?,
+            );
+        }
+    }
+    let tokens = page
+        .tokens
+        .as_ref()
+        .map(|t| tokens::Tokens::load(&page.root.join(t)))
+        .transpose()?;
+    let style = css::Style {
+        tokens: tokens.as_ref(),
+        base: &base,
+    };
+    let mut sheet = css::generate(&sources, &shell, &style);
     if let Some(style) = &page.style {
         sheet.push('\n');
         sheet.push_str(&read(style)?);

@@ -1,0 +1,8 @@
+# Every panelkit component on one page, in the scheme the system asks for; `#light` or `#dark`
+# in the URL (or the switch in the bar) picks one. The tokens and the kit come from the
+# packages folder: the token file's variables and colour names, the kit by its bare name.
+title = "panelkit"
+tokens = "../../packages/panelkit/tokens.toml"
+
+[imports]
+panelkit = "../../packages/panelkit"

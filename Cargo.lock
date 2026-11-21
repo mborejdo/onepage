@@ -1261,8 +1261,10 @@ dependencies = [
  "boa_engine",
  "encre-css",
  "serde",
+ "serde_json",
  "sha2",
  "swc_core",
+ "toml 1.2.2+spec-1.1.0",
 ]
 
 [[package]]

@@ -1,0 +1,14 @@
+{
+  "name": "panelkit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Preact components for a tool page or an MCP App, drawn with the tokens in tokens.toml.",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "style": "base.css",
+  "exports": {
+    ".": "./src/index.ts",
+    "./glyphs": "./src/glyphs.ts",
+    "./mcp": "./src/mcp/index.ts"
+  }
+}

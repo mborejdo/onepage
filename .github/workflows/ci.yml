@@ -51,6 +51,8 @@ jobs:
           cargo run --release --locked --all-features -- test examples/hello
           cargo run --release --locked -- build examples/hello --out out/hello/index.html
           cargo run --release --locked -- build examples/wasm --out out/wasm/index.html
+          cargo run --release --locked --all-features -- test examples/kit
+          cargo run --release --locked -- build examples/kit --out out/kit/index.html
       - uses: actions/upload-artifact@v4
         with:
           name: example-pages

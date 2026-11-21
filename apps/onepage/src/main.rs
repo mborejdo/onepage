@@ -31,7 +31,8 @@ fn run(cli: Cli) -> anyhow::Result<u8> {
         Command::New { name } => println!("{}", onepage::new_page::run(&name)?),
         #[cfg(feature = "test")]
         Command::Test { dir } => {
-            let outcomes = pagekit::test::run(&dir)?;
+            let page = onepage::config::Config::load(&dir)?.page(&dir, false);
+            let outcomes = pagekit::test::run(&page)?;
             for outcome in &outcomes {
                 println!("{}", outcome.file.display());
                 for line in &outcome.lines {
