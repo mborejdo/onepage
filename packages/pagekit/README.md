@@ -1,6 +1,7 @@
 # pagekit
 
-A Preact TSX module graph to one self-contained HTML page, in process: no Node, no npm.
+The engine behind onepage: a Preact TSX module graph to one self-contained HTML page, in
+process. No Node, no npm.
 
 ```rust
 let page = pagekit::Page::new("examples/hello");
@@ -8,27 +9,18 @@ let built = pagekit::build(&page)?;
 std::fs::write("index.html", built.html)?;
 ```
 
-- `bundle` links the imports from the entry into one classic script with
-  [swc](https://swc.rs): TypeScript stripped, JSX compiled to `h`/`Fragment`, `preact`,
-  `preact/hooks` and `preact/jsx-runtime` read from the inlined UMD runtime, minified when
-  `Page::minify` is set.
-- `packages` resolves bare imports: the page's import map (a name to a package folder or a
-  file) and a vendor folder of unpacked npm packages, by their `package.json`.
-- `css` scans the source, the mapped packages' modules and the shell for class names and writes
-  the utilities with [encre-css](https://crates.io/crates/encre-css), after the token variables
-  and the packages' own sheets.
-- `tokens` reads a design-token file (two palettes, fonts, sizes, a chart series, radii,
-  spacing) into CSS variables and utility colour names, and computes WCAG contrast.
-- `html` fills the shell's `<!--css-->` and `<!--js-->` slots, sets the title and the icon, and
-  adds a Content-Security-Policy that pins the inline script and style by their sha256 hashes.
-- `check` fails the build on what would otherwise be a blank page: JSX without `h`, an
-  undeclared global, `import.meta`, an import outside the page. Each is a `Finding` with a file
-  and a line.
-- `lint` runs [Biome](https://biomejs.dev)'s lint and formatter in process over the page's
-  own sources (safe fixes and the formatter written back on request) and, read-only, its
-  mapped packages; `Rules` reads a `[lint]` table of group and rule levels.
-- `test` (feature `test`) runs `*.test.ts` files in [boa](https://boajs.dev).
+| module | does |
+|---|---|
+| `bundle` | links the imports into one classic script with [swc](https://swc.rs): TypeScript stripped, JSX to `h`/`Fragment`, `preact*` from the inlined runtime, minified with `Page::minify` |
+| `packages` | resolves bare imports via the import map and a vendor folder, by `package.json` |
+| `css` | [encre-css](https://crates.io/crates/encre-css) utilities for the class names in the sources, packages and shell, after the token variables and package sheets |
+| `tokens` | a design-token file to CSS variables and utility colour names, plus WCAG contrast |
+| `html` | fills the `<!--css-->`/`<!--js-->` slots, title and icon, and adds a CSP pinning the inline script and style by sha256 |
+| `check` | fails on what would be a blank page; each `Finding` has a file and line |
+| `lint` | [Biome](https://biomejs.dev) lint and formatter over the page's sources (fixes on request) and, read-only, its packages; `Rules` reads `[lint]` |
+| `test` | (feature `test`) runs `*.test.ts` in [boa](https://boajs.dev) |
 
-The vendored Preact runtime is MIT, see `assets/LICENSE-preact`.
+Details live in the [onepage README](../../README.md) and the rustdoc. The vendored Preact
+runtime is MIT, see `assets/LICENSE-preact`.
 
 License: MIT OR Apache-2.0.

@@ -1,6 +1,6 @@
 [package]
 name = "pagekit"
-description = "A Preact TSX module graph to one self-contained HTML page: swc bundle, encre-css utilities, a hash-pinned CSP."
+description = "A Preact TSX module graph to one self-contained HTML page with a hash-pinned CSP."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

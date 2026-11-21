@@ -1,6 +1,6 @@
 [package]
 name = "onepage"
-description = "A Preact TSX page in, one self-contained HTML file out: bundled, styled, minified, CSP-locked."
+description = "A Preact TSX page in, one self-contained HTML file out: bundled, minified, CSP-locked."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -7,13 +7,12 @@ use clap::{Parser, Subcommand};
 /// What the top of `--help` says.
 const ABOUT: &str = "A Preact TSX page in, one self-contained HTML file out
 
-swc bundles the module graph, encre-css writes the utilities the page uses, and a strict
-Content-Security-Policy pins the one inline script by its hash. No Node, no npm.";
+Bundled by swc, styled by encre-css, locked by a hash-pinned CSP. No Node, no npm.";
 
 /// The end of the root `--help`: examples and exit codes.
 const ROOT_FOOTER: &str = "\
 Examples:
-  onepage new hello                 make hello/onepage.toml, index.html and src/app.tsx
+  onepage new hello                 make hello/onepage.toml, index.html, src/app.tsx
   onepage build hello               write hello/dist/index.html, minified
   onepage lint hello --fix          Biome's safe fixes and formatter, written back
   onepage dev hello --port 8000     rebuild on save, serve on http://127.0.0.1:8000/
@@ -21,7 +20,7 @@ Examples:
 Exit codes:
   0  done
   1  the page has a mistake (one `error: file:line: message` line each on stderr)
-  2  onepage could not do what you asked (the reason is the one line on stderr)";
+  2  onepage could not do what you asked (the reason on stderr)";
 
 /// The `onepage` command line.
 #[derive(Debug, Parser)]

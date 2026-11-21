@@ -1,17 +1,13 @@
 # panelkit
 
-A small Preact component set for tool pages and MCP Apps, and the design tokens it is drawn
-with. Plain Preact and hooks, no framework; the look is utility classes on the token names plus
-one short sheet.
+A small Preact component set for tool pages and MCP Apps, plus the design tokens it's drawn
+with. Plain Preact and hooks; the look is utility classes on the token names and one short sheet.
 
-- `tokens.toml` - the one source of truth for colours, faces, sizes, the chart series, radii
-  and spacing, in two schemes.
-- `src/` - the components (`panelkit`), the glyphs (`panelkit/glyphs`) and the MCP Apps client
-  (`panelkit/mcp`).
-- `base.css` - what a utility cannot say: the faces, the page's ground and ink, focus, the
-  figures' motion.
-- `fonts/` - the token faces, embedded: Inter and Fira Code, SIL OFL 1.1 (see
-  [LICENSE-inter](LICENSE-inter) and [LICENSE-fira-code](LICENSE-fira-code)).
+- `tokens.toml` - colours, faces, sizes, chart series, radii and spacing, in two schemes.
+- `src/` - components (`panelkit`), glyphs (`panelkit/glyphs`), MCP Apps client (`panelkit/mcp`).
+- `base.css` - what a utility can't say: faces, page ground and ink, focus, figure motion.
+- `fonts/` - Inter and Fira Code, SIL OFL 1.1 ([LICENSE-inter](LICENSE-inter),
+  [LICENSE-fira-code](LICENSE-fira-code)).
 
 ## Use it from a onepage page
 
@@ -36,9 +32,9 @@ render(
 );
 ```
 
-`tokens` writes the variables and teaches the utilities the colour names; `[imports]` makes
-`panelkit` a bare import, scans its modules for class names and brings `base.css` (the
-`style` field of `package.json`). [`examples/kit`](../../examples/kit) shows every component.
+`tokens` writes the variables and the utility colour names; `[imports]` makes `panelkit` a bare
+import, scans it for class names and brings `base.css` (its `package.json` `style`).
+[`examples/kit`](../../examples/kit) shows every component.
 
 ## Tokens
 
@@ -53,29 +49,22 @@ render(
 | `ok` / `warn` / `stop` | `#2d7a38` / `#a15c00` / `#c0392b` | `#8fd694` / `#f2c46d` / `#f28b82` | the three states |
 | `series-1..6` | blue, orange, aqua, violet, magenta, ochre | the same hues, stepped | chart series, in order |
 
-Text colours reach 4.5:1 on `ground` and `surface` in both schemes, `ground` reaches 4.5:1 on
-`accent` (a filled button's label), and the series reach 3:1 (pagekit's `tokens` tests check
-it). Fonts: `Inter` for text, its display cut for headings, `Fira Code` for mono, with the system
-faces behind them.
-`--radius-sm|md|lg` (4, 8, 12px) and `--space-gap` (12px) shape the components.
-
-In a class: `bg-surface`, `text-muted`, `border-border`, `bg-accent/15`, `text-series-3`; in a
-value: `rounded-[var(--radius-md)]`, `p-[var(--space-gap)]`. `font-sans` and `font-mono` are the
-token faces.
+Both schemes hold WCAG AA (text 4.5:1 on `ground` and `surface`, `ground` 4.5:1 on `accent`,
+series 3:1), checked by pagekit's tests. Faces: Inter, its display cut for headings, Fira Code
+for mono, system faces behind. Radii `--radius-sm|md|lg` (4, 8, 12px), gap `--space-gap`
+(12px). Use them as `bg-surface`, `text-series-3`, `rounded-[var(--radius-md)]`,
+`p-[var(--space-gap)]`, `font-mono`.
 
 ## Faces
 
-`base.css` declares Inter and Fira Code from `fonts/` (onepage inlines them into the page), so a
-page looks the same where they are not installed: about 85 KB of woff2, 113 KB in the page.
-Both are latin subsets of the variable fonts at weights 300 to 700. Inter keeps its optical
-size axis: text draws at its own size, headings (`h1` to `h3`) at `opsz` 32, which is Inter
-Display. Neither file has contextual alternates or ligatures, so `->`, `=>` and `!=` stay as
-typed, and `base.css` turns ligatures off for `code`, `kbd`, `samp`, `pre` and `font-mono`
-whatever face `--font-mono` names. Figures (`Gauge`, `Counter`, `Facts`, tab counts, a numeric
-`Input`) use tabular digits.
+onepage inlines the faces from `fonts/` (85 KB woff2, 113 KB in the page), so they need no
+install. Latin subsets of the variable fonts, weights 300 to 700. Headings (`h1` to `h3`) use
+Inter's `opsz` 32, Inter Display. No contextual alternates or ligatures (`->`, `=>`, `!=` stay
+as typed); `code`, `kbd`, `samp`, `pre` and `font-mono` have ligatures off whatever the face.
+Figures (`Gauge`, `Counter`, `Facts`, tab counts, numeric `Input`) use tabular digits.
 
-To rebuild a file (fonttools with brotli), from `InterVariable.ttf` (Inter 4.1) and
-`FiraCode-VF.ttf` (Fira Code 6.2):
+Rebuild (fonttools with brotli) from `InterVariable.ttf` (Inter 4.1) and `FiraCode-VF.ttf`
+(Fira Code 6.2):
 
 ```sh
 U="U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,\
@@ -90,57 +79,56 @@ pyftsubset fira.ttf --unicodes="$U" --flavor=woff2 --output-file=fonts/fira-code
 
 ## Components
 
-Every value in, every change out as the value (not the event). `tooltip` is the native title
-and, for a control whose glyph is its only label, its accessible name.
+Values in, changes out as the value (not the event). `tooltip` is the native title and, for a
+glyph-only control, its accessible name.
 
 | | |
 |---|---|
-| `Button` | `tone` (`accent` fills it), `shape` (`square`, `icon`, `text`), `icon` (a glyph before the label, or the whole label), `disabled`, `shut` (disabled but focusable), `href`, `external`, `type` |
+| `Button` | `tone` (`accent` fills it), `shape` (`square`, `icon`, `text`), `icon` (before the label, or the whole label), `disabled`, `shut` (disabled but focusable), `href`, `external`, `type` |
 | `Field` | a `<label>` over its control: `label`, `hint` |
 | `Input`, `Textarea` | `value`, `onInput(value)`, `placeholder`, `numeric` / `rows`, `mono` |
-| `Select` | `value`, `options` (`{ value, label }` or plain strings with `labels`), `groups`, `onChange(value)` |
+| `Select` | `value`, `options` (`{ value, label }` or strings with `labels`), `groups`, `onChange(value)` |
 | `Check`, `Toggle` | `checked`, `onChange(checked)`, `label` |
-| `Tag` | `tone`, `dot` (the tone's glyph before an ink word), `label` (a fact: `<Tag label="CPU">42 %</Tag>`), `square` |
+| `Tag` | `tone`, `dot` (tone glyph before an ink word), `label` (a fact: `<Tag label="CPU">42 %</Tag>`), `square` |
 | `Code` | inline code on a faint ground: `muted`, `sans` |
 | `Card` | `title`, `sub`, `icon`, `actions`, `pad`, `fill`, `onClick` (the card acts), `href` |
-| `Alert` | `tone` (`warn` by default), `title`, `actions`, `rail` |
+| `Alert` | `tone` (default `warn`), `title`, `actions`, `rail` |
 | `Facts` | `rows`: `[label, value, aside?]` or `{ label, value, aside, tone, icon }` |
 | `Tabs` | `tabs` (`{ value, label, count, disabled }`), `value`, `onChange`; arrow keys move |
 | `Gauge` | `value`, `low`, `high`, `unit`, `label`, `tone`, `decimals`, `ends`; out of range is `bad` |
-| `Counter` | a split-flap count: `value`, `caption`, `unit`, `digits`, `size` (`md`, `lg`), `locale` |
-| `Bar` | the page's top bar: `name`, `subtitle`, `stage`, `home`, actions as children |
+| `Counter` | split-flap count: `value`, `caption`, `unit`, `digits`, `size` (`md`, `lg`), `locale` |
+| `Bar` | top bar: `name`, `subtitle`, `stage`, `home`, actions as children |
 | `SplitPane` | `start`, `end`, `ratio`, `min`; the divider drags and takes arrow keys |
-| `Preview` | a `Blob` framed: a PDF in the viewer, HTML sandboxed without scripts; `empty` |
-| `Icon` | `glyph`, `size` (16 by default), `spin`, `tooltip` |
+| `Preview` | a `Blob` framed: PDF in the viewer, HTML sandboxed without scripts; `empty` |
+| `Icon` | `glyph`, `size` (default 16), `spin`, `tooltip` |
 
-`Tone` is `neutral`, `accent`, `ok`, `warn`, `bad` (`stop` is the same as `bad`). `TONE_TEXT`,
-`TONE_BG` and `TONE_GLYPH` map a tone to its classes and glyph; `MUTE`, `MUTE_SM`, `LABEL` and
-`KICKER` are the caption faces.
+`Tone` is `neutral`, `accent`, `ok`, `warn`, `bad` (`stop` = `bad`). `TONE_TEXT`, `TONE_BG` and
+`TONE_GLYPH` map a tone to classes and glyph; `MUTE`, `MUTE_SM`, `LABEL` and `KICKER` are the
+caption faces.
 
 ## Glyphs
 
-`panelkit/glyphs` exports 119 [Tabler Icons](https://tabler.io/icons) (MIT, see
-[LICENSE-tabler](LICENSE-tabler)) in the outline style: a 24 x 24 grid, a 2px round stroke in
-`currentColor`. Each is Tabler's name in camel case with `Icon` behind it - `downloadIcon`,
-`alertTriangleIcon`, `playerPlayIcon`, `chartLineIcon` - so a page carries only those it
-imports. `GLYPHS` maps every Tabler name to its glyph, for a catalogue (it carries them all).
-To add one, copy its paths from Tabler's outline SVG into `src/glyphs.ts`.
+`panelkit/glyphs` exports 119 outline [Tabler Icons](https://tabler.io/icons) (MIT,
+[LICENSE-tabler](LICENSE-tabler)): 24 x 24, 2px round stroke in `currentColor`. Names are
+Tabler's in camel case plus `Icon` (`downloadIcon`, `alertTriangleIcon`, `chartLineIcon`), so a
+page carries only what it imports. `GLYPHS` maps every Tabler name to its glyph, for a catalogue
+(it carries them all). To add one, copy its paths from Tabler's outline SVG into
+`src/glyphs.ts`.
 
 ## MCP Apps: `panelkit/mcp`
 
-A client for the [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) extension: a page
-an MCP server lists as a `ui://` resource, shown by a chat host in a sandboxed frame. It speaks
-JSON-RPC 2.0 over `postMessage` with the parent window.
+A client for [MCP Apps](https://github.com/modelcontextprotocol/ext-apps): a page an MCP server
+lists as a `ui://` resource, shown by a chat host in a sandboxed frame. JSON-RPC 2.0 over
+`postMessage` with the parent window.
 
-- On import, in a frame: `ui/initialize` (the protocol version, the page's name, the display
-  modes it supports), then `ui/notifications/initialized`. The host's theme becomes
-  `<html data-theme>`, which the token sheet follows.
+- On import, in a frame: `ui/initialize` (protocol version, page name, supported display
+  modes), then `ui/notifications/initialized`. The host's theme becomes `<html data-theme>`.
 - From the host: `ui/notifications/tool-input` and `tool-input-partial` (the opening tool's
-  arguments), `ui/notifications/tool-result`, `ui/notifications/host-context-changed`; a
-  host request (`ui/resource-teardown`, `ping`) is answered.
+  arguments), `ui/notifications/tool-result`, `ui/notifications/host-context-changed`; host
+  requests (`ui/resource-teardown`, `ping`) are answered.
 - To the host: `tools/call`, `ui/request-display-mode`, `ui/open-link`, `ui/message`,
-  `ui/update-model-context`, `notifications/message`, and `ui/notifications/size-changed`
-  whenever the content's size changes.
+  `ui/update-model-context`, `notifications/message`, and `ui/notifications/size-changed` on
+  every content resize.
 
 | | |
 |---|---|
@@ -154,12 +142,10 @@ JSON-RPC 2.0 over `postMessage` with the parent window.
 
 ### Without a host: `window.__panelkitMocks`
 
-A page that is not framed (opened directly, a preview, a test) never connects. Its tool calls -
-`useTool` and `callTool` - go to `window.__panelkitMocks[name](args)` instead; with no mock
-they fail with "no host". A mock returns a `CallToolResult`, or any other value, which is taken
-as its `structuredContent`; it may return a promise and may throw. Set it before the first
-call - in the page, or in a script a server injects ahead of the page's when it serves the page
-outside a host:
+An unframed page (opened directly, a preview, a test) never connects: `useTool` and `callTool`
+call `window.__panelkitMocks[name](args)`, or fail with "no host". A mock returns a
+`CallToolResult` or any value (taken as `structuredContent`), may be async, may throw. Set it
+before the first call, in the page or in a script a server injects ahead of it:
 
 ```js
 // Every tool of the server that serves the page, by name, over its JSON-RPC endpoint.

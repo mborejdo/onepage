@@ -1,51 +1,33 @@
 # onepage
 
 A Preact TSX page in, one self-contained HTML file out: bundled, styled, minified and locked
-down by a strict Content-Security-Policy.
-
-The script, the stylesheet, the Preact runtime and the icon are all inside the one file, so it
-opens from disk, from any static host or as an email attachment. Pure Rust: no Node, no npm,
-no `node_modules`.
+by a strict Content-Security-Policy. Script, styles, Preact runtime and icon are all in that one
+file, so it opens from disk, a static host or an email attachment. Pure Rust, no Node, no npm.
 
 ## Install
 
-You need a Rust toolchain.
-
 ```sh
 cargo install --path apps/onepage
-# with `onepage test` (embeds the boa JavaScript engine)
-cargo install --path apps/onepage --features test
+cargo install --path apps/onepage --features test   # adds `onepage test` (embeds boa)
 ```
+
+Not on crates.io: Biome ships its crates only as a git tag, which `cargo install --path`
+fetches.
 
 ## Usage
 
 ```sh
-onepage new hello                 # hello/onepage.toml, index.html and src/app.tsx
-onepage build hello               # hello/dist/index.html, minified
-onepage build hello --out site/index.html
-onepage lint hello                # Biome's lint and formatter, read-only
-onepage lint hello --fix          # the safe fixes and the formatter, written back
+onepage new hello                 # hello/onepage.toml, index.html, src/app.tsx
+onepage build hello               # hello/dist/index.html, minified (--out to change)
+onepage lint hello [--fix]        # Biome lint and formatter; --fix writes safe fixes back
 onepage dev hello --port 8000     # rebuild on save, unminified, on http://127.0.0.1:8000/
-onepage test hello                # src/**/*.test.ts (the `test` feature)
+onepage test hello                # src/**/*.test.ts (`test` feature)
 ```
 
-A page is a folder with a shell and a TSX entry:
+`dev` polls file times every 300 ms; `--port` adds a small `std::net` server. No live reload.
 
-```html
-<!-- index.html -->
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>hello</title>
-<!--css-->
-</head>
-<body>
-<div id="root"></div>
-<!--js-->
-</body>
-</html>
-```
+A page is a folder with an HTML shell (`<!--css-->` and `<!--js-->` mark where the sheet and
+script go) and a TSX entry:
 
 ```tsx
 // src/app.tsx
@@ -64,8 +46,7 @@ function App() {
 render(<App />, document.getElementById("root") as HTMLElement);
 ```
 
-A mistake that would build and then show a blank page fails the build instead, with one line on
-stderr per finding and exit code 1:
+A mistake that would build into a blank page fails the build, one line per finding:
 
 ```text
 error: src/app.tsx:3: uses JSX but does not import `h`; add `import { h } from "preact";`
@@ -73,76 +54,63 @@ error: src/app.tsx:3: uses JSX but does not import `h`; add `import { h } from "
 
 | check | why |
 |---|---|
-| JSX without `h`, `<>` without `Fragment` | classic JSX compiles to `h(...)`; without the import the page throws on first render |
-| an undeclared global | a typo or a missing import, otherwise a runtime `ReferenceError`; `WebAssembly` and `Worker` need `[wasm]` |
-| `import.meta` | the page is one classic script, which has none |
-| an import outside the page folder or from an unknown package | only relative imports, `preact` (and its hooks and JSX runtime) and the packages in `[imports]` or `vendor` are bundled |
+| JSX without `h`, `<>` without `Fragment` | JSX compiles to `h(...)`, the page throws on first render |
+| undeclared global | typo or missing import; `WebAssembly` and `Worker` need `[wasm]` |
+| `import.meta` | the page is one classic script, it has none |
+| import outside the page folder or from an unknown package | only relative imports, `preact` and `[imports]`/`vendor` packages are bundled |
 
-Exit codes: 0 done, 1 the page has a mistake (a check or a lint error), 2 onepage could not do what you asked (the
-reason is the one line on stderr).
+Exit codes: 0 done, 1 the page has a mistake (check or lint), 2 onepage couldn't do what you
+asked (reason on stderr).
 
 ## Lint
 
-`onepage lint` runs Biome's lint and formatter in process over the page's own sources: the
-`.ts` and `.tsx` files in the entry's folder, `vendor` and the `[wasm] glue` left out. The
-rules are Biome's `recommended` (no `nursery`; the `react` and `test` domains on, `project`
-off), with the classic JSX runtime under Preact's `h` and `Fragment`. One line per finding,
-in the shape of the checks:
+Biome's lint and formatter, in process, over the page's own `.ts`/`.tsx` files (not `vendor`,
+not `[wasm] glue`). Rules: Biome's `recommended`, no `nursery`, `react` and `test` domains on,
+`project` off, classic JSX under Preact's `h` and `Fragment`.
 
 ```text
 error: src/app.tsx:10: lint/a11y/useButtonType: Provide an explicit type prop for the button element.
-error: src/app.tsx:1: lint/format: not as the formatter would leave it; `onepage lint --fix` rewrites it
-notice: ../packages/kit/src/icon.tsx:53: lint/suspicious/noArrayIndexKey: Avoid using the index of an array as key property in an element.
 ```
 
-An `error` fails with exit 1, a `notice` is printed and fails nothing: `useExhaustiveDependencies`
-and `useJsxKeyInIterable` are notices by default. The mapped packages of `[imports]` are linted
-read-only under the defaults and their findings are notices: a fix goes where the package
-lives.
-
-`--fix` applies Biome's safe fixes (and the removal of unused imports, which the TypeScript
-strip elides anyway), then the formatter: two spaces, 100 columns, double quotes, trailing
-commas, semicolons. Twice is once.
-
-`onepage build` fixes and formats the page's sources first, so what is bundled is what is on
-disk, and a lint error fails the build before anything is written. `onepage dev` does the same
-on every save and prints the findings; a lint error keeps the last good page. There is no
-separate check verb: `onepage lint` is the read-only gate for CI.
+- `error` exits 1, `notice` only prints. `useExhaustiveDependencies` and `useJsxKeyInIterable`
+  are notices by default; a file the formatter would change is a `lint/format` error.
+- `[imports]` packages are linted read-only, as notices: fix them where they live.
+- `--fix` applies the safe fixes (plus dropping unused imports), then formats: two spaces, 100
+  columns, double quotes, trailing commas, semicolons. Twice is once.
+- `build` and `dev` fix and format first, so what's bundled is what's on disk. A lint error
+  fails `build` before anything is written; `dev` keeps the last good page. Use `onepage lint`
+  as the read-only CI gate.
 
 ## Config
 
-`onepage.toml` in the page's folder. Every key is optional; an unknown key is an error.
+`onepage.toml` in the page folder. Every key is optional, an unknown key is an error.
 
 ```toml
-entry = "src/app.tsx"        # the module the bundle starts from
-shell = "index.html"         # the HTML with the <!--css--> and <!--js--> slots
+entry = "src/app.tsx"        # module the bundle starts from
+shell = "index.html"         # HTML with the <!--css--> and <!--js--> slots
 out = "dist/index.html"      # where the page is written
-style = "src/style.css"      # a sheet appended after the utilities (default: none)
-favicon = "favicon.svg"      # an SVG inlined as the icon, replacing the shell's icon links
+style = "src/style.css"      # sheet appended after the utilities (default: none)
+favicon = "favicon.svg"      # SVG inlined as the icon, replaces the shell's icon links
 title = "Hello"              # replaces the shell's <title>
-tokens = "tokens.toml"       # design tokens: CSS variables and utility colour names
-vendor = "../vendor"         # a folder of unpacked npm packages, for bare imports
+tokens = "tokens.toml"       # design tokens, see Tokens
+vendor = "../vendor"         # unpacked npm packages, see Bare imports
 
-# The import map: a bare name to a package folder or to one file.
-[imports]
+[imports]                    # import map: bare name -> package folder or one file
 panelkit = "../packages/panelkit"
 "d3-scale" = "../vendor/d3-scale/src/index.js"
 
-# Extra sources, added after the defaults of each directive.
-[csp]
+[csp]                        # extra sources, after each directive's defaults
 connect = ["https://api.example.com"]
 img = []
 frame = []
 font = []
 media = []
 
-# The WebAssembly opt-in.
-[wasm]
-files = ["add.wasm"]         # copied next to `out`, by file name
-glue = "src/wasm"            # generated glue (wasm-bindgen): skipped by the checks
+[wasm]                       # WebAssembly opt-in
+files = ["add.wasm"]         # copied next to `out`
+glue = "src/wasm"            # wasm-bindgen glue, skipped by the checks
 
-# Single tokens changed for this page; needs `tokens`. Any of the nine colours per scheme.
-[theme.light]
+[theme.light]                # single tokens for this page (needs `tokens`), nine colours per scheme
 accent = "#5b4fb3"
 
 [theme.dark]
@@ -151,18 +119,16 @@ accent = "#b4a9f5"
 [theme.fonts]                # sans, mono, display
 mono = "JetBrains Mono"
 
-# Biome rules for the page's own sources: a group's level, then a rule's.
-[lint]
+[lint]                       # levels error, notice, off: per group, then per rule
 groups = { style = "error", complexity = "error" }
 rules = { "style/noTernary" = "off", "suspicious/noConsole" = "notice" }
 ```
 
-`[lint]` levels are `error`, `notice` and `off`. A group covers its rules that run under the
-domains above (not deprecated, not `nursery`); a `nursery` rule is turned on by name only. A
-rule is `<group>/<name>`, as a finding names it (`lint/` in front is allowed). An unknown
-group or rule is an error that names it, and so is a rule that needs Biome's module graph.
+A `[lint]` group covers its rules in the domains above, not deprecated or `nursery` ones (turn
+those on by name). Rules are `<group>/<name>`, `lint/` in front is allowed. An unknown group or
+rule is an error, so is one that needs Biome's module graph.
 
-The policy, as the first element of `<head>`:
+The policy is the first element of `<head>`:
 
 ```text
 default-src 'none'; script-src 'sha256-...'; style-src 'sha256-...';
@@ -171,17 +137,16 @@ frame-src 'self' blob:; media-src 'self' blob:; worker-src 'self' blob:;
 manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'
 ```
 
-`style-src` is `'unsafe-inline'` instead when the markup has `style="..."` attributes, which no
-hash can cover. With `[wasm]`, `script-src` also has `'wasm-unsafe-eval'`.
+`style="..."` attributes in the markup turn `style-src` into `'unsafe-inline'` (no hash covers
+them). `[wasm]` adds `'wasm-unsafe-eval'` to `script-src`.
 
 ### Tokens
 
-`tokens` names a TOML file of design tokens, [`packages/panelkit/tokens.toml`](packages/panelkit/tokens.toml)
-for one: `[light]` and `[dark]` palettes of the same nine colours (`ground`, `ink`, `muted`,
-`accent`, `surface`, `border`, `ok`, `warn`, `stop`), `[fonts]` (`sans`, `mono`, `display`),
-`[sizes]` (`text`, `label`), and optionally `[series]` (`light` and `dark` lists of chart
-colours), `[radii]` and `[space]` (CSS lengths by name). The sheet starts with them as
-variables:
+A token file ([panelkit's](packages/panelkit/tokens.toml), say) has `[light]` and `[dark]` with
+the same nine colours (`ground`, `ink`, `muted`, `accent`, `surface`, `border`, `ok`, `warn`,
+`stop`), `[fonts]` (`sans`, `mono`, `display`), `[sizes]` (`text`, `label`), and optionally
+`[series]` (`light`/`dark` chart colour lists), `[radii]` and `[space]` (named CSS lengths).
+They open the sheet as variables:
 
 ```css
 :root{color-scheme:light dark;--font-sans:"Inter",ui-sans-serif,...;--radius-md:8px;--ground:#fbfaf7;...}
@@ -190,78 +155,60 @@ variables:
 [data-theme=dark]{color-scheme:dark;--ground:#17191f;...}
 ```
 
-So the system picks the scheme, and `<html data-theme="dark">` (or any element's, for a
-subtree) overrides it. Each colour name and `series-1` to `series-n` is also a utility colour:
-`bg-surface`, `text-muted`, `border-border`, `bg-accent/15`, `fill-series-2`; a page writes no
-colour classes of its own.
+The system picks the scheme; `data-theme` on `<html>` (or any element, for a subtree) overrides
+it. Every colour and `series-1..n` is a utility colour (`bg-surface`, `text-muted`,
+`bg-accent/15`, `fill-series-2`), so a page writes no colour classes.
 
-`[theme.light]`, `[theme.dark]` and `[theme.fonts]` change single tokens before the variables
-are written, so a change holds in both schemes and under `data-theme`; a page's own
-`:root{--accent:...}` would lose to the dark block. An unknown name is an error, and so is
-`[theme]` without `tokens`. The changed palettes are held to the token file's contrast duties,
-and a failing pair fails the build:
-
-```text
-error: onepage.toml:6: [theme.dark] accent #7a6fd0 is 4.1:1 on ground, needs 4.5:1
-```
-
-Text colours (`ink`, `muted`, `accent`, `ok`, `warn`, `stop`) need 4.5:1 on `ground` and
-`surface`, `ground` needs 4.5:1 on `accent`, each series colour 3:1 on both.
+`[theme.*]` is applied before the variables are written, so it holds in both schemes and under
+`data-theme` - a page's own `:root{--accent:...}` would lose to the dark block. Unknown names are
+an error, so is `[theme]` without `tokens`. The result must keep WCAG AA or the build fails at
+the line (`[theme.dark] accent #7a6fd0 is 4.1:1 on ground, needs 4.5:1`): text colours (`ink`,
+`muted`, `accent`, `ok`, `warn`, `stop`) 4.5:1 on `ground` and `surface`, `ground` 4.5:1 on
+`accent`, series 3:1 on both.
 
 ### Bare imports
 
-A bare import (`import { Card } from "panelkit"`, `"panelkit/mcp"`, `"@scope/name/sub"`)
-resolves through `[imports]` first, then `vendor`; `preact`, `preact/hooks` and
-`preact/jsx-runtime` always come from the inlined runtime, so the page and every package share
-one Preact.
+`"panelkit"`, `"panelkit/mcp"` or `"@scope/name/sub"` resolve through `[imports]`, then
+`vendor`. `preact`, `preact/hooks` and `preact/jsx-runtime` always come from the inlined
+runtime, so everything shares one Preact.
 
-- `[imports]` is an import map, the shape of an HTML import map's `imports` and of a
-  `file:` dependency in `package.json`: a specifier or a package name to a folder or a file
-  (relative to the page). A file is the entry. A folder is a package: its `package.json` says
-  the entry and the subpaths, as below. A mapped package is the page's own code: its modules
-  run the checks, their class names count, and a `style` field in its `package.json` names a
-  sheet that comes with it.
-- `vendor` is a folder of npm packages as `npm pack` unpacks them (`<vendor>/<name>/` and
-  `<vendor>/@scope/<name>/`), already on disk: onepage has no network and no install. A
-  package's entry is its `exports` (subpaths, `*` patterns, the conditions `browser`, `import`,
-  `module` and `default`, in that order), else `module`, else `main`; a package's imports of
-  other packages resolve the same way. Vendored code is linked as it is, not checked. To pin an
-  entry, map the name to the file in `[imports]`.
+- `[imports]` works like an HTML import map or a `file:` dependency, paths relative to the
+  page. A file is the entry; a folder is a package, its `package.json` gives entry and
+  subpaths. Mapped packages count as page code: checked, scanned for class names, and their
+  `package.json` `style` sheet comes along.
+- `vendor` holds packages as `npm pack` unpacks them (`<vendor>/<name>/`,
+  `<vendor>/@scope/<name>/`); no network, no install. Entry: `exports` (subpaths, `*` patterns,
+  conditions `browser`, `import`, `module`, `default` in that order), else `module`, else
+  `main`, for the packages' imports of each other too. Vendored code is linked as is, not
+  checked. To pin an entry, map it in `[imports]`.
 
 ## Examples
 
-- [`examples/hello`](examples/hello): a counter, a second module, the page's own sheet, an
-  icon and a test file.
-- [`examples/wasm`](examples/wasm): fetches a 41-byte WebAssembly module and calls its `add`.
-  `fetch` does not work from `file://`, so run it with `onepage dev examples/wasm --port 8000`.
-- [`examples/kit`](examples/kit): every [panelkit](packages/panelkit) component, with the
-  token file and the kit by its bare name; `#light` or `#dark` in the URL picks a scheme.
+- [`examples/hello`](examples/hello): a counter, a second module, a page sheet, an icon, a test.
+- [`examples/wasm`](examples/wasm): fetches a 41-byte wasm module and calls `add`. `fetch`
+  fails on `file://`, so use `onepage dev examples/wasm --port 8000`.
+- [`examples/kit`](examples/kit): every [panelkit](packages/panelkit) component; `#light` or
+  `#dark` in the URL picks a scheme.
 
 ## How it works
 
-1. **Lint.** Biome fixes and formats the page's sources in place; an error stops the build.
-2. **Bundle.** swc parses each module, runs the checks, strips TypeScript and compiles JSX in
-   the classic runtime (`h`, `Fragment`). The swc bundler links the relative and bare imports
-   into one module; each `import { ... } from "preact"` becomes `const { ... } = window.preact`.
-   The module is wrapped in a function and, for `build`, minified by the swc minifier with
-   names mangled.
-3. **Style.** The token variables; encre-css's preflight; the mapped packages' sheets; the
-   utilities for every class name in the entry's folder, the mapped packages' modules and the
-   shell; then the `style` sheet. `build` strips comments and indentation.
-4. **Fill.** The sheet goes into `<!--css-->` as one `<style>`; the Preact runtime and the
-   bundle into `<!--js-->` as one `<script>`; the title and the icon into `<head>`.
-5. **Lock.** The policy is computed from the finished file, so the hashes match byte for byte.
-
-`onepage dev` polls modification times every 300 ms and rebuilds; `--port` adds a small static
-server over `std::net`. No live reload: refresh the browser.
+- **Lint** - Biome fixes and formats the sources; an error stops the build.
+- **Bundle** - swc runs the checks, strips TypeScript, compiles JSX and links everything into
+  one function-wrapped module; `import { ... } from "preact"` becomes `window.preact`. `build`
+  minifies and mangles.
+- **Style** - token variables, encre-css's preflight, package sheets, utilities for every class
+  name in the sources, packages and shell, then `style`.
+- **Fill** - one `<style>` into `<!--css-->`, runtime and bundle as one `<script>` into
+  `<!--js-->`, title and icon into `<head>`.
+- **Lock** - the policy is hashed from the finished file, so it matches byte for byte.
 
 ## Workspace
 
 | crate | what |
 |---|---|
-| [`apps/onepage`](apps/onepage) | the binary: command line, `onepage.toml`, dev loop and server, page scaffold |
-| [`packages/pagekit`](packages/pagekit) | the engine: swc bundle, package resolution, tokens, encre-css sheet, shell, CSP, checks, Biome lint and format, boa tests |
-| [`packages/panelkit`](packages/panelkit) | not a crate: the token file and a Preact component set, imported by pages |
+| [`apps/onepage`](apps/onepage) | the binary: CLI, `onepage.toml`, dev loop and server, scaffold |
+| [`packages/pagekit`](packages/pagekit) | the engine: bundle, packages, tokens, CSS, CSP, checks, lint, tests |
+| [`packages/panelkit`](packages/panelkit) | not a crate: a token file and Preact components |
 
 ## Development
 
@@ -273,13 +220,8 @@ cargo deny check
 for p in examples/*; do cargo run -- lint "$p"; done
 ```
 
-Biome's crates come from its git release tag (it does not publish them), so onepage is not on
-crates.io; `cargo install --path` fetches them. CI runs the same, plus the example pages, uploaded as an artifact. `tokens`' tests check that
-panelkit's token file holds WCAG AA contrast in both schemes.
-
 ## License
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT)
-at your option. The vendored Preact runtime in `packages/pagekit/assets` is MIT, see its
-[license](packages/pagekit/assets/LICENSE-preact). panelkit's glyphs are Tabler Icons, MIT, see
-[their license](packages/panelkit/LICENSE-tabler).
+[Apache-2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option. The vendored Preact runtime
+([license](packages/pagekit/assets/LICENSE-preact)) and panelkit's Tabler glyphs
+([license](packages/panelkit/LICENSE-tabler)) are MIT.
