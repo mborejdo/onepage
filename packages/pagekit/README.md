@@ -24,6 +24,9 @@ std::fs::write("index.html", built.html)?;
 - `check` fails the build on what would otherwise be a blank page: JSX without `h`, an
   undeclared global, `import.meta`, an import outside the page. Each is a `Finding` with a file
   and a line.
+- `lint` runs [Biome](https://biomejs.dev)'s lint and formatter in process over the page's
+  own sources (safe fixes and the formatter written back on request) and, read-only, its
+  mapped packages; `Rules` reads a `[lint]` table of group and rule levels.
 - `test` (feature `test`) runs `*.test.ts` files in [boa](https://boajs.dev).
 
 The vendored Preact runtime is MIT, see `assets/LICENSE-preact`.

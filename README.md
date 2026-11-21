@@ -23,6 +23,8 @@ cargo install --path apps/onepage --features test
 onepage new hello                 # hello/onepage.toml, index.html and src/app.tsx
 onepage build hello               # hello/dist/index.html, minified
 onepage build hello --out site/index.html
+onepage lint hello                # Biome's lint and formatter, read-only
+onepage lint hello --fix          # the safe fixes and the formatter, written back
 onepage dev hello --port 8000     # rebuild on save, unminified, on http://127.0.0.1:8000/
 onepage test hello                # src/**/*.test.ts (the `test` feature)
 ```
@@ -53,13 +55,13 @@ import { useState } from "preact/hooks";
 function App() {
   const [count, setCount] = useState(0);
   return (
-    <button class="p-4 text-sm" onClick={() => setCount(count + 1)}>
+    <button type="button" class="p-4 text-sm" onClick={() => setCount(count + 1)}>
       Clicked {count} times
     </button>
   );
 }
 
-render(<App />, document.getElementById("root")!);
+render(<App />, document.getElementById("root") as HTMLElement);
 ```
 
 A mistake that would build and then show a blank page fails the build instead, with one line on
@@ -76,8 +78,36 @@ error: src/app.tsx:3: uses JSX but does not import `h`; add `import { h } from "
 | `import.meta` | the page is one classic script, which has none |
 | an import outside the page folder or from an unknown package | only relative imports, `preact` (and its hooks and JSX runtime) and the packages in `[imports]` or `vendor` are bundled |
 
-Exit codes: 0 done, 1 the page has a mistake, 2 onepage could not do what you asked (the
+Exit codes: 0 done, 1 the page has a mistake (a check or a lint error), 2 onepage could not do what you asked (the
 reason is the one line on stderr).
+
+## Lint
+
+`onepage lint` runs Biome's lint and formatter in process over the page's own sources: the
+`.ts` and `.tsx` files in the entry's folder, `vendor` and the `[wasm] glue` left out. The
+rules are Biome's `recommended` (no `nursery`; the `react` and `test` domains on, `project`
+off), with the classic JSX runtime under Preact's `h` and `Fragment`. One line per finding,
+in the shape of the checks:
+
+```text
+error: src/app.tsx:10: lint/a11y/useButtonType: Provide an explicit type prop for the button element.
+error: src/app.tsx:1: lint/format: not as the formatter would leave it; `onepage lint --fix` rewrites it
+notice: ../packages/kit/src/icon.tsx:53: lint/suspicious/noArrayIndexKey: Avoid using the index of an array as key property in an element.
+```
+
+An `error` fails with exit 1, a `notice` is printed and fails nothing: `useExhaustiveDependencies`
+and `useJsxKeyInIterable` are notices by default. The mapped packages of `[imports]` are linted
+read-only under the defaults and their findings are notices: a fix goes where the package
+lives.
+
+`--fix` applies Biome's safe fixes (and the removal of unused imports, which the TypeScript
+strip elides anyway), then the formatter: two spaces, 100 columns, double quotes, trailing
+commas, semicolons. Twice is once.
+
+`onepage build` fixes and formats the page's sources first, so what is bundled is what is on
+disk, and a lint error fails the build before anything is written. `onepage dev` does the same
+on every save and prints the findings; a lint error keeps the last good page. There is no
+separate check verb: `onepage lint` is the read-only gate for CI.
 
 ## Config
 
@@ -120,7 +150,17 @@ accent = "#b4a9f5"
 
 [theme.fonts]                # sans, mono, display
 mono = "JetBrains Mono"
+
+# Biome rules for the page's own sources: a group's level, then a rule's.
+[lint]
+groups = { style = "error", complexity = "error" }
+rules = { "style/noTernary" = "off", "suspicious/noConsole" = "notice" }
 ```
+
+`[lint]` levels are `error`, `notice` and `off`. A group covers its rules that run under the
+domains above (not deprecated, not `nursery`); a `nursery` rule is turned on by name only. A
+rule is `<group>/<name>`, as a finding names it (`lint/` in front is allowed). An unknown
+group or rule is an error that names it, and so is a rule that needs Biome's module graph.
 
 The policy, as the first element of `<head>`:
 
@@ -199,17 +239,18 @@ one Preact.
 
 ## How it works
 
-1. **Bundle.** swc parses each module, runs the checks, strips TypeScript and compiles JSX in
+1. **Lint.** Biome fixes and formats the page's sources in place; an error stops the build.
+2. **Bundle.** swc parses each module, runs the checks, strips TypeScript and compiles JSX in
    the classic runtime (`h`, `Fragment`). The swc bundler links the relative and bare imports
    into one module; each `import { ... } from "preact"` becomes `const { ... } = window.preact`.
    The module is wrapped in a function and, for `build`, minified by the swc minifier with
    names mangled.
-2. **Style.** The token variables; encre-css's preflight; the mapped packages' sheets; the
+3. **Style.** The token variables; encre-css's preflight; the mapped packages' sheets; the
    utilities for every class name in the entry's folder, the mapped packages' modules and the
    shell; then the `style` sheet. `build` strips comments and indentation.
-3. **Fill.** The sheet goes into `<!--css-->` as one `<style>`; the Preact runtime and the
+4. **Fill.** The sheet goes into `<!--css-->` as one `<style>`; the Preact runtime and the
    bundle into `<!--js-->` as one `<script>`; the title and the icon into `<head>`.
-4. **Lock.** The policy is computed from the finished file, so the hashes match byte for byte.
+5. **Lock.** The policy is computed from the finished file, so the hashes match byte for byte.
 
 `onepage dev` polls modification times every 300 ms and rebuilds; `--port` adds a small static
 server over `std::net`. No live reload: refresh the browser.
@@ -219,7 +260,7 @@ server over `std::net`. No live reload: refresh the browser.
 | crate | what |
 |---|---|
 | [`apps/onepage`](apps/onepage) | the binary: command line, `onepage.toml`, dev loop and server, page scaffold |
-| [`packages/pagekit`](packages/pagekit) | the engine: swc bundle, package resolution, tokens, encre-css sheet, shell, CSP, checks, boa tests |
+| [`packages/pagekit`](packages/pagekit) | the engine: swc bundle, package resolution, tokens, encre-css sheet, shell, CSP, checks, Biome lint and format, boa tests |
 | [`packages/panelkit`](packages/panelkit) | not a crate: the token file and a Preact component set, imported by pages |
 
 ## Development
@@ -229,9 +270,11 @@ cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features
 cargo deny check
+for p in examples/*; do cargo run -- lint "$p"; done
 ```
 
-CI runs the same, plus the example pages, uploaded as an artifact. `tokens`' tests check that
+Biome's crates come from its git release tag (it does not publish them), so onepage is not on
+crates.io; `cargo install --path` fetches them. CI runs the same, plus the example pages, uploaded as an artifact. `tokens`' tests check that
 panelkit's token file holds WCAG AA contrast in both schemes.
 
 ## License

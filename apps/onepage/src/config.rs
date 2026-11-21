@@ -43,6 +43,8 @@ pub struct Config {
     pub vendor: Option<PathBuf>,
     /// The import map: a bare specifier or package name to a package folder or a file.
     pub imports: BTreeMap<String, PathBuf>,
+    /// Biome rules moved by group and by name, for the page's own sources.
+    pub lint: pagekit::lint::Config,
 }
 
 impl Default for Config {
@@ -61,6 +63,7 @@ impl Default for Config {
             theme: None,
             vendor: None,
             imports: BTreeMap::new(),
+            lint: pagekit::lint::Config::default(),
         }
     }
 }
@@ -80,7 +83,13 @@ impl Config {
                 path.display()
             );
         }
+        config.rules().with_context(|| path.display().to_string())?;
         Ok(config)
+    }
+
+    /// The rules of `[lint]`: an unknown group or rule is an error that names it.
+    pub fn rules(&self) -> Result<pagekit::lint::Rules> {
+        pagekit::lint::Rules::of(&self.lint).context("[lint]")
     }
 
     /// With a `[theme]`, hold the changed palettes to the token file's contrast duties
@@ -198,6 +207,22 @@ mod tests {
         .unwrap();
         assert_eq!(config.imports["kit"], PathBuf::from("../kit"));
         assert_eq!(config.vendor, Some(PathBuf::from("../vendor")));
+    }
+
+    #[test]
+    fn lint_moves_groups_and_rules_and_names_an_unknown_one() {
+        let config: Config = toml::from_str(
+            "[lint]\ngroups = { style = \"error\" }\nrules = { \"style/noTernary\" = \"off\" }\n",
+        )
+        .unwrap();
+        assert!(config.rules().is_ok());
+        let config: Config =
+            toml::from_str("[lint]\nrules = { \"style/noTernery\" = \"off\" }\n").unwrap();
+        let error = format!("{:#}", config.rules().unwrap_err());
+        assert!(error.contains("no rule `noTernery` in `style`"), "{error}");
+        assert!(
+            toml::from_str::<Config>("[lint]\nrules = { \"style/noTernary\" = \"warn\" }").is_err()
+        );
     }
 
     #[test]

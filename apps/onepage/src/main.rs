@@ -3,6 +3,7 @@
 //! ```sh
 //! onepage new hello
 //! onepage build hello
+//! onepage lint hello --fix
 //! onepage dev hello --port 8000
 //! ```
 
@@ -23,11 +24,17 @@ use crate::cli::{Cli, Command};
 fn run(cli: Cli) -> anyhow::Result<u8> {
     match cli.command {
         Command::Build { dir, out } => {
-            let out = onepage::build(&dir, out.as_deref(), true)?;
+            let (out, lint) = onepage::build(&dir, out.as_deref(), true)?;
+            eprint!("{lint}");
             let size = std::fs::metadata(&out).map_or(0, |m| m.len());
             println!("{}  {} KB", out.display(), size / 1024);
         },
         Command::Dev { dir, port } => onepage::dev::run(&dir, port)?,
+        Command::Lint { dir, fix } => {
+            let lint = onepage::lint(&dir, fix)?;
+            eprint!("{lint}");
+            return Ok(u8::from(lint.errors() > 0));
+        },
         Command::New { name } => println!("{}", onepage::new_page::run(&name)?),
         #[cfg(feature = "test")]
         Command::Test { dir } => {

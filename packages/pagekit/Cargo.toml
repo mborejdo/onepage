@@ -8,6 +8,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+publish.workspace = true
 readme = "README.md"
 keywords = ["preact", "bundler", "html", "csp", "swc"]
 categories = ["web-programming", "development-tools::build-utils"]
@@ -23,8 +24,19 @@ test = ["dep:boa_engine"]
 [dependencies]
 anyhow.workspace = true
 base64.workspace = true
+biome_analyze.workspace = true
+biome_diagnostics.workspace = true
+biome_embeds.workspace = true
+biome_formatter.workspace = true
+biome_js_analyze.workspace = true
+biome_js_formatter.workspace = true
+biome_js_parser.workspace = true
+biome_js_syntax.workspace = true
+biome_languages.workspace = true
+biome_rowan.workspace = true
 boa_engine = { workspace = true, optional = true }
 encre-css.workspace = true
+rayon.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

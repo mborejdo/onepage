@@ -319,7 +319,9 @@ function Frames() {
 
 function App() {
   const [tab, setTab] = useState("all");
-  const [theme, setTheme] = useState(initial === "light" || initial === "dark" ? initial : "system");
+  const [theme, setTheme] = useState(
+    initial === "light" || initial === "dark" ? initial : "system",
+  );
   return (
     <div class="flex min-h-screen flex-col">
       <Bar name="panelkit" subtitle="every component, both schemes" stage="0.1">
@@ -375,4 +377,4 @@ function App() {
   );
 }
 
-render(<App />, document.getElementById("root")!);
+render(<App />, document.getElementById("root") as HTMLElement);

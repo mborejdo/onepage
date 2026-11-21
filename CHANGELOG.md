@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Added
 
+- `onepage lint [DIR]` and `onepage lint --fix`: Biome's lint and formatter in process over the
+  page's own sources (the entry's folder, `vendor` and the `[wasm] glue` left out), its
+  `recommended` rules with the classic JSX runtime under `h` and `Fragment`. One
+  `error:`/`notice:` `file:line: rule: message` line per finding, exit 1 on an error; read-only,
+  a file the formatter would change is a `lint/format` error. `--fix` writes the safe fixes and
+  the formatter (two spaces, 100 columns, double quotes, trailing commas, semicolons) in place.
+  The mapped packages are linted read-only, as notices.
+- `[lint]` in `onepage.toml`: `groups = { style = "error" }` and
+  `rules = { "style/noTernary" = "off" }`, levels `error`, `notice` and `off`; an unknown group
+  or rule is an error that names it.
+- `pagekit::lint`: the lint as a library (`page`, `lint_text`, `Rules`, `Report`).
 - `tokens = "tokens.toml"`: a design-token file (`[light]` and `[dark]` palettes of nine
   colours, `[fonts]`, `[sizes]`, `[series]`, `[radii]`, `[space]`) written as CSS variables -
   the light palette on `:root`, the dark one under `prefers-color-scheme: dark` and both under
@@ -34,6 +45,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Changed
 
+- `onepage build` and `onepage dev` fix and format the page's sources before they bundle; a
+  lint error fails the build. `onepage::build` returns the lint's report with the path.
+- The examples and `onepage new` are lint-clean: `type="button"`, no `!` on the root element.
+- Not published to crates.io: Biome's crates are git dependencies (`publish = false`).
 - `pagekit::bundle::bundle` returns the script and the modules it loaded;
   `pagekit::css::generate` and `pagekit::test::run` take the page's style and page.
 

@@ -12,7 +12,11 @@ function App() {
       .then(({ instance }) => setSum(String((instance.exports.add as Add)(2, 3))))
       .catch((e: Error) => setSum(`failed: ${e.message}`));
   }, []);
-  return <p id="sum" class="p-4 font-mono">2 + 3 = {sum}</p>;
+  return (
+    <p id="sum" class="p-4 font-mono">
+      2 + 3 = {sum}
+    </p>
+  );
 }
 
-render(<App />, document.getElementById("root")!);
+render(<App />, document.getElementById("root") as HTMLElement);

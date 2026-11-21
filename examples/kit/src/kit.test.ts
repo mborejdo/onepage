@@ -6,11 +6,17 @@ import { answerOf, asResult, hostStateOf, nextSize } from "panelkit/mcp";
 
 test("a counter flips only the digits that changed, from the right", () => {
   const first = flaps(null, 66, "66");
-  assert(first.cells.every((c) => c.flip === null), "the first render flips nothing");
+  assert(
+    first.cells.every((c) => c.flip === null),
+    "the first render flips nothing",
+  );
   const next = flaps(first.memory, 67, "67");
   assert(next.cells[0]?.flip === null && next.cells[1]?.flip === "up", "66 -> 67 flips one");
   const fall = flaps(next.memory, 100, "100");
-  assert(fall.cells.every((c) => c.flip === "up"), "99 -> 100 flips every cell");
+  assert(
+    fall.cells.every((c) => c.flip === "up"),
+    "99 -> 100 flips every cell",
+  );
 });
 
 test("a tool result reads as data, text and error", () => {

@@ -1,8 +1,8 @@
 //! onepage: a Preact TSX page in, one self-contained HTML file out.
 //!
-//! The engine is [`pagekit`]; this crate adds the config file ([`config`]), the build that
-//! writes the files ([`build`]), the watch-and-serve loop ([`dev`]) and the page scaffold
-//! ([`new_page`]).
+//! The engine is [`pagekit`]; this crate adds the config file ([`config`]), the lint
+//! ([`lint`]), the build that writes the files ([`build`]), the watch-and-serve loop ([`dev`])
+//! and the page scaffold ([`new_page`]).
 
 pub mod config;
 pub mod dev;
@@ -12,12 +12,17 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
+use pagekit::lint::Report;
+
 use crate::config::Config;
 
-/// The line to print for a failed command, and its exit code: 1 for a mistake in the page
-/// (`error: file:line: message`), 2 for anything else (`onepage: reason`).
+/// The lines to print for a failed command, and its exit code: 1 for a mistake in the page
+/// (`error: file:line: message`, one line each), 2 for anything else (`onepage: reason`).
 #[must_use]
 pub fn report(e: &anyhow::Error) -> (String, u8) {
+    if let Some(lint) = e.chain().find_map(|e| e.downcast_ref::<Report>()) {
+        return (lint.to_string().trim_end().to_owned(), 1);
+    }
     e.chain()
         .find_map(|e| e.downcast_ref::<pagekit::Finding>())
         .map_or_else(
@@ -26,11 +31,24 @@ pub fn report(e: &anyhow::Error) -> (String, u8) {
         )
 }
 
+/// Biome over the page in `dir` ([`pagekit::lint::page`]): read-only, a file the formatter
+/// would change is a finding; with `fix`, the safe fixes and the formatter are written back.
+pub fn lint(dir: &Path, fix: bool) -> Result<Report> {
+    let config = Config::load(dir)?;
+    pagekit::lint::page(&config.page(dir, false), &config.rules()?, fix)
+}
+
 /// Build the page in `dir` and write it to `out` (else the config's `out`), with the
-/// `[wasm]` files next to it. Returns the path written.
-pub fn build(dir: &Path, out: Option<&Path>, minify: bool) -> Result<PathBuf> {
+/// `[wasm]` files next to it. The page's sources are fixed and formatted first, so what is
+/// bundled is what is on disk; a lint error fails the build with its [`Report`]. Returns the
+/// path written and the lint's report (its notices and the files it formatted).
+pub fn build(dir: &Path, out: Option<&Path>, minify: bool) -> Result<(PathBuf, Report)> {
     let config = Config::load(dir)?;
     config.check_theme(dir)?;
+    let lint = pagekit::lint::page(&config.page(dir, minify), &config.rules()?, true)?;
+    if lint.errors() > 0 {
+        return Err(lint.into());
+    }
     let built = pagekit::build(&config.page(dir, minify))?;
     let out = out.map_or_else(|| dir.join(&config.out), Path::to_path_buf);
     let folder = out.parent().unwrap_or_else(|| Path::new("."));
@@ -41,5 +59,5 @@ pub fn build(dir: &Path, out: Option<&Path>, minify: bool) -> Result<PathBuf> {
         std::fs::copy(&file, folder.join(name))
             .with_context(|| format!("[wasm] files: copying {}", file.display()))?;
     }
-    Ok(out)
+    Ok((out, lint))
 }

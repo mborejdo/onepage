@@ -15,6 +15,7 @@ const ROOT_FOOTER: &str = "\
 Examples:
   onepage new hello                 make hello/onepage.toml, index.html and src/app.tsx
   onepage build hello               write hello/dist/index.html, minified
+  onepage lint hello --fix          Biome's safe fixes and formatter, written back
   onepage dev hello --port 8000     rebuild on save, serve on http://127.0.0.1:8000/
 
 Exit codes:
@@ -33,7 +34,7 @@ pub(crate) struct Cli {
 /// The subcommands.
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
-    /// Build the page into one minified HTML file.
+    /// Fix and format the page's sources, then build it into one minified HTML file.
     Build {
         /// The page's folder.
         #[arg(default_value = ".")]
@@ -50,6 +51,15 @@ pub(crate) enum Command {
         /// Serve the output folder on 127.0.0.1 at this port.
         #[arg(long)]
         port: Option<u16>,
+    },
+    /// Lint the page's sources with Biome; a file the formatter would change is a finding.
+    Lint {
+        /// The page's folder.
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+        /// Apply the safe fixes and the formatter, in place.
+        #[arg(long)]
+        fix: bool,
     },
     /// Make a new page folder that builds on the first try.
     New {

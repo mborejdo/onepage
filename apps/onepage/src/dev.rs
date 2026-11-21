@@ -19,7 +19,8 @@ use anyhow::{Context, Result};
 use crate::config::Config;
 
 /// Watch `dir` (and the packages its import map names, and its token file) and rebuild it
-/// unminified on every change; with `port`, serve the result.
+/// unminified on every change, its sources fixed and formatted first; with `port`, serve the
+/// result.
 pub fn run(dir: &Path, port: Option<u16>) -> Result<()> {
     let config = Config::load(dir)?;
     let out = dir.join(&config.out);
@@ -35,15 +36,19 @@ pub fn run(dir: &Path, port: Option<u16>) -> Result<()> {
         std::thread::spawn(move || serve(&listener, &root, &index));
         println!("serving http://127.0.0.1:{port}/");
     }
+    let now = || -> Vec<_> { watched.iter().flat_map(|w| snapshot(w, &folder)).collect() };
     let mut seen = None;
     loop {
-        let now: Vec<_> = watched.iter().flat_map(|w| snapshot(w, &folder)).collect();
-        if seen.as_ref() != Some(&now) {
-            seen = Some(now);
+        if seen.as_ref() != Some(&now()) {
             match crate::build(dir, None, false) {
-                Ok(path) => println!("built {}", path.display()),
+                Ok((path, lint)) => {
+                    eprint!("{lint}");
+                    println!("built {}", path.display());
+                },
                 Err(e) => eprintln!("{}", crate::report(&e).0),
             }
+            // Taken after the build, so the formatter's own rewrite is not read as an edit.
+            seen = Some(now());
         }
         std::thread::sleep(Duration::from_millis(300));
     }

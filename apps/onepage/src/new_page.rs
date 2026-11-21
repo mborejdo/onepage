@@ -31,14 +31,18 @@ function App() {
   return (
     <main class=\"mx-auto max-w-md p-8 font-sans\">
       <h1 class=\"text-2xl font-bold\">@TITLE@</h1>
-      <button class=\"mt-4 rounded bg-black px-4 py-2 text-white\" onClick={() => setCount(count + 1)}>
+      <button
+        type=\"button\"
+        class=\"mt-4 rounded bg-black px-4 py-2 text-white\"
+        onClick={() => setCount(count + 1)}
+      >
         Clicked {count} times
       </button>
     </main>
   );
 }
 
-render(<App />, document.getElementById(\"root\")!);
+render(<App />, document.getElementById(\"root\") as HTMLElement);
 ";
 
 /// Make the folder `dir` with `onepage.toml`, `index.html` and `src/app.tsx`. Returns what

@@ -1,6 +1,6 @@
 # onepage: a Preact TSX page in, one self-contained HTML file out. swc bundles the module graph,
-# encre-css writes the utility sheet, and a strict Content-Security-Policy pins the one inline
-# script by its hash. No Node, no npm.
+# encre-css writes the utility sheet, Biome lints and formats the source, and a strict
+# Content-Security-Policy pins the one inline script by its hash. No Node, no npm.
 [workspace]
 resolver = "3"
 members = ["apps/onepage", "packages/pagekit"]
@@ -14,6 +14,8 @@ authors = ["Michael Borejdo <mborejdo@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mborejdo/onepage"
 homepage = "https://github.com/mborejdo/onepage"
+# Not on crates.io: Biome's crates are git-only dependencies, which `cargo publish` refuses.
+publish = false
 
 [workspace.dependencies]
 anyhow = "1"
@@ -41,6 +43,20 @@ swc_core = { version = "82", features = [
 ] }
 # Tailwind-style utilities from the class names the source uses.
 encre-css = "0.20"
+# The lint and the formatter, in process. From git because Biome does not publish these crates;
+# one tag for all (they only build together), the release `@biomejs/biome` is on.
+biome_analyze = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_diagnostics = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_embeds = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_formatter = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_js_analyze = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_js_formatter = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_js_parser = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_js_syntax = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_languages = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+biome_rowan = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
+# One file per core in the lint; already in the tree through Biome.
+rayon = "1"
 # `onepage test`: a JavaScript engine in Rust, behind the off-by-default `test` feature.
 boa_engine = "0.22"
 

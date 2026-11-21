@@ -17,6 +17,7 @@ pub mod bundle;
 pub mod check;
 pub mod css;
 pub mod html;
+pub mod lint;
 pub mod packages;
 #[cfg(feature = "test")]
 pub mod test;

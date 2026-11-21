@@ -17,7 +17,9 @@ fn examples() -> PathBuf {
 fn build(dir: &Path, name: &str) -> (String, PathBuf) {
     let out = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
     let _ = std::fs::remove_dir_all(&out);
-    let file = onepage::build(dir, Some(&out.join("index.html")), true).unwrap();
+    let file = onepage::build(dir, Some(&out.join("index.html")), true)
+        .unwrap()
+        .0;
     (std::fs::read_to_string(file).unwrap(), out)
 }
 
@@ -125,7 +127,7 @@ const VENDORED: &[(&str, &str)] = &[
 #[test]
 fn vendored_packages_resolve_and_share_one_preact() {
     let dir = page("vendored", VENDORED);
-    let out = onepage::build(&dir, None, true).unwrap();
+    let out = onepage::build(&dir, None, true).unwrap().0;
     let html = std::fs::read_to_string(out).unwrap();
     assert!(html.contains(".p-4 {"), "the page's own classes");
     #[cfg(feature = "test")]
@@ -161,7 +163,7 @@ fn an_import_map_names_a_kit_and_a_missing_package_fails() {
             ),
         ],
     );
-    let out = onepage::build(&dir, None, true).unwrap();
+    let out = onepage::build(&dir, None, true).unwrap().0;
     let html = std::fs::read_to_string(out).unwrap();
     assert!(
         html.contains(".m-7 {"),
@@ -293,7 +295,7 @@ fn a_theme_wins_in_both_schemes_and_under_data_theme() {
         "themed",
         "[theme.light]\naccent = \"#5b4fb3\"\n\n[theme.dark]\naccent = \"#b4a9f5\"\n",
     );
-    let html = std::fs::read_to_string(onepage::build(&dir, None, true).unwrap()).unwrap();
+    let html = std::fs::read_to_string(onepage::build(&dir, None, true).unwrap().0).unwrap();
     let sheet = html::bodies(&html, "style").next().unwrap();
     let block = |start: &str| {
         let from = sheet.find(start).unwrap_or_else(|| panic!("{start}"));
@@ -344,5 +346,64 @@ fn a_low_contrast_theme_fails_the_build_at_its_line() {
     assert_eq!(
         line,
         "error: onepage.toml:6: [theme.dark] accent #7a6fd0 is 4.1:1 on ground, needs 4.5:1"
+    );
+}
+
+#[test]
+fn lint_reports_fixes_in_place_and_fails_the_build() {
+    let dir = page(
+        "lint",
+        &[
+            (
+                "onepage.toml",
+                "[imports]\nkit = \"../lint-kit/index.ts\"\n\
+                 [lint]\nrules = { \"suspicious/noDebugger\" = \"off\" }\n",
+            ),
+            ("../lint-kit/index.ts", "export var k = 1;\ndebugger;\n"),
+            (
+                "src/app.tsx",
+                "import {h, render} from 'preact'\nimport { k } from \"kit\";\ndebugger;\n\
+                 render(<p>{k}</p>, document.body)\n",
+            ),
+        ],
+    );
+    let lint = onepage::lint(&dir, false).unwrap();
+    let lines: Vec<String> = lint.findings.iter().map(ToString::to_string).collect();
+    assert_eq!(
+        lines[0],
+        "error: src/app.tsx:1: lint/format: not as the formatter would leave it; \
+         `onepage lint --fix` rewrites it"
+    );
+    assert!(
+        lines[1].starts_with("notice: ../lint-kit/index.ts:2: lint/suspicious/noDebugger: "),
+        "a mapped package keeps the preset and only notices: {lines:?}"
+    );
+    assert_eq!((lint.errors(), lines.len()), (1, 2), "{lines:?}");
+
+    let fixed = onepage::lint(&dir, true).unwrap();
+    assert_eq!(fixed.formatted, [PathBuf::from("src/app.tsx")]);
+    assert_eq!(fixed.errors(), 0);
+    let app = std::fs::read_to_string(dir.join("src/app.tsx")).unwrap();
+    assert!(
+        app.starts_with("import { h, render } from \"preact\";\n"),
+        "{app}"
+    );
+    assert_eq!(
+        onepage::lint(&dir, true).unwrap().formatted,
+        [] as [PathBuf; 0]
+    );
+    onepage::build(&dir, None, true).unwrap();
+
+    std::fs::write(
+        dir.join("src/more.ts"),
+        "export const x = 1;\n\nexport const y = x == 2;\n",
+    )
+    .unwrap();
+    let error = onepage::build(&dir, None, true).unwrap_err();
+    let (text, code) = onepage::report(&error);
+    assert_eq!(code, 1);
+    assert!(
+        text.contains("error: src/more.ts:3: lint/suspicious/noDoubleEquals: "),
+        "{text}"
     );
 }

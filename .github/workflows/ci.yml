@@ -46,6 +46,8 @@ jobs:
           RUSTDOCFLAGS: -D warnings
       - name: deny
         run: cargo deny check
+      - name: Lint the example pages
+        run: for p in examples/*; do cargo run --release --locked -- lint "$p" || exit 1; done
       - name: Build the example pages
         run: |
           cargo run --release --locked --all-features -- test examples/hello
