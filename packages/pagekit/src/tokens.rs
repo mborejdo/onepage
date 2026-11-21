@@ -7,6 +7,10 @@
 //! dark one under `prefers-color-scheme: dark` unless `[data-theme=light]` says otherwise, and
 //! both again under `[data-theme=...]`, so a page (or its host) can pick a scheme for the
 //! whole page or for one subtree.
+//!
+//! A [`Theme`] changes single tokens of a file before the variables are written, so a change
+//! holds in every scheme and under `[data-theme]`; [`Tokens::pairs`] are the contrast duties
+//! to check it against.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -84,6 +88,97 @@ impl Palette {
         }
         out
     }
+
+    /// The colour called `name`, one of [`NAMES`].
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<&str> {
+        self.named()
+            .into_iter()
+            .find(|(n, _)| *n == name)
+            .map(|(_, v)| v)
+    }
+
+    fn slot(&mut self, name: &str) -> Option<&mut String> {
+        Some(match name {
+            "ground" => &mut self.ground,
+            "ink" => &mut self.ink,
+            "muted" => &mut self.muted,
+            "accent" => &mut self.accent,
+            "surface" => &mut self.surface,
+            "border" => &mut self.border,
+            "ok" => &mut self.ok,
+            "warn" => &mut self.warn,
+            "stop" => &mut self.stop,
+            _ => return None,
+        })
+    }
+}
+
+/// Changes to a token file: `[theme.light]`, `[theme.dark]` and `[theme.fonts]`, each key
+/// optional, an unknown one refused.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Theme {
+    /// Colours of the light palette.
+    pub light: PaletteOverlay,
+    /// Colours of the dark palette.
+    pub dark: PaletteOverlay,
+    /// Font families.
+    pub fonts: FontsOverlay,
+}
+
+/// Some colours of one palette, each `#rrggbb`.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+#[allow(
+    missing_docs,
+    reason = "the fields are NAMES, documented in the token file"
+)]
+pub struct PaletteOverlay {
+    pub ground: Option<String>,
+    pub ink: Option<String>,
+    pub muted: Option<String>,
+    pub accent: Option<String>,
+    pub surface: Option<String>,
+    pub border: Option<String>,
+    pub ok: Option<String>,
+    pub warn: Option<String>,
+    pub stop: Option<String>,
+}
+
+impl PaletteOverlay {
+    /// The colours given, with their names, in [`NAMES`] order.
+    #[must_use]
+    pub fn named(&self) -> Vec<(&'static str, &str)> {
+        let values = [
+            &self.ground,
+            &self.ink,
+            &self.muted,
+            &self.accent,
+            &self.surface,
+            &self.border,
+            &self.ok,
+            &self.warn,
+            &self.stop,
+        ];
+        NAMES
+            .iter()
+            .zip(values)
+            .filter_map(|(name, value)| value.as_deref().map(|v| (*name, v)))
+            .collect()
+    }
+}
+
+/// Some font families.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FontsOverlay {
+    /// Proportional text.
+    pub sans: Option<String>,
+    /// Code and figures.
+    pub mono: Option<String>,
+    /// Headings.
+    pub display: Option<String>,
 }
 
 /// The font families, by name; [`Tokens::css`] appends the system fallbacks.
@@ -157,6 +252,79 @@ impl Tokens {
         Ok(tokens)
     }
 
+    /// These tokens with `theme`'s changes; a colour that is not `#rrggbb` is an error.
+    pub fn with(mut self, theme: &Theme) -> Result<Self> {
+        for (scheme, palette, over) in [
+            ("light", &mut self.light, &theme.light),
+            ("dark", &mut self.dark, &theme.dark),
+        ] {
+            for (name, value) in over.named() {
+                rgb(value).with_context(|| format!("[theme.{scheme}] {name}"))?;
+                if let Some(slot) = palette.slot(name) {
+                    value.clone_into(slot);
+                }
+            }
+        }
+        let fonts = &theme.fonts;
+        for (slot, value) in [
+            (&mut self.fonts.sans, &fonts.sans),
+            (&mut self.fonts.mono, &fonts.mono),
+            (&mut self.fonts.display, &fonts.display),
+        ] {
+            if let Some(value) = value {
+                value.clone_into(slot);
+            }
+        }
+        Ok(self)
+    }
+
+    /// Every pair that must be readable, in both schemes, with its ratio: `ink`, `muted`,
+    /// `accent`, `ok`, `warn` and `stop` at 4.5:1 (WCAG AA for text) on `ground` and on
+    /// `surface`, each series colour at 3:1 (a graphical object) on both, and `ground` at
+    /// 4.5:1 on `accent` (a filled button's label).
+    #[must_use]
+    pub fn pairs(&self) -> Vec<Pair> {
+        let mut out = vec![];
+        for (scheme, palette, series) in [
+            ("light", &self.light, &self.series.light),
+            ("dark", &self.dark, &self.series.dark),
+        ] {
+            let mut push = |fg: String, fg_hex: &str, bg: &'static str, bg_hex: &str, need| {
+                let ratio = match (rgb(fg_hex), rgb(bg_hex)) {
+                    (Ok(a), Ok(b)) => contrast(a, b),
+                    _ => 1.0,
+                };
+                out.push(Pair {
+                    scheme,
+                    fg,
+                    fg_hex: fg_hex.to_owned(),
+                    bg,
+                    bg_hex: bg_hex.to_owned(),
+                    ratio,
+                    need,
+                });
+            };
+            for back in ["ground", "surface"] {
+                let bg = palette.get(back).unwrap_or_default();
+                for name in TEXT {
+                    let fg = palette.get(name).unwrap_or_default();
+                    push(name.to_owned(), fg, back, bg, 4.5);
+                }
+                for (i, fg) in series.iter().enumerate() {
+                    push(format!("series-{}", i + 1), fg, back, bg, 3.0);
+                }
+            }
+            push(
+                "ground".into(),
+                &palette.ground,
+                "accent",
+                &palette.accent,
+                4.5,
+            );
+        }
+        out
+    }
+
     /// The colour names a utility may use, each to its variable: `ground` to `var(--ground)`,
     /// `series-1` to `var(--series-1)`.
     #[must_use]
@@ -209,6 +377,43 @@ impl Tokens {
              [data-theme=light]{{color-scheme:light;{light}}}\n\
              [data-theme=dark]{{color-scheme:dark;{dark}}}\n"
         )
+    }
+}
+
+/// The colours that carry text, held to 4.5:1 on `ground` and `surface`.
+const TEXT: [&str; 6] = ["ink", "muted", "accent", "ok", "warn", "stop"];
+
+/// One contrast duty of [`Tokens::pairs`]: a colour on a background, in one scheme.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pair {
+    /// `light` or `dark`.
+    pub scheme: &'static str,
+    /// The foreground's name: one of [`NAMES`] or `series-<n>`.
+    pub fg: String,
+    /// The foreground colour.
+    pub fg_hex: String,
+    /// The background's name.
+    pub bg: &'static str,
+    /// The background colour.
+    pub bg_hex: String,
+    /// The WCAG 2 contrast ratio of the two.
+    pub ratio: f64,
+    /// The ratio the pair needs.
+    pub need: f64,
+}
+
+impl Pair {
+    /// The ratio is at least the one needed.
+    #[must_use]
+    pub fn passes(&self) -> bool {
+        self.ratio >= self.need
+    }
+
+    /// The ratio for a message, rounded down to one decimal so a failure never reads as the
+    /// ratio it needs: `4.47` is `4.4`.
+    #[must_use]
+    pub fn shown(&self) -> f64 {
+        (self.ratio * 10.0).floor() / 10.0
     }
 }
 
@@ -269,44 +474,55 @@ mod tests {
     /// Every pair that must be readable, with the ratio it needs; one line per failure.
     #[test]
     fn panelkit_tokens_reach_wcag_aa_on_ground_and_surface() {
-        let tokens = panelkit();
-        let mut failures = vec![];
-        for (scheme, palette, series) in [
-            ("light", &tokens.light, &tokens.series.light),
-            ("dark", &tokens.dark, &tokens.series.dark),
-        ] {
-            let c = |hex: &str| rgb(hex).unwrap();
-            let mut pairs: Vec<(String, &str, &str, f64)> = vec![];
-            for back in ["ground", "surface"] {
-                let bg = palette
-                    .named()
-                    .into_iter()
-                    .find(|(n, _)| *n == back)
-                    .unwrap()
-                    .1;
-                for (name, fg) in palette.named() {
-                    if ["ink", "muted", "accent", "ok", "warn", "stop"].contains(&name) {
-                        pairs.push((format!("{name} on {back}"), fg, bg, 4.5));
-                    }
-                }
-                for (i, fg) in series.iter().enumerate() {
-                    pairs.push((format!("series-{} on {back}", i + 1), fg, bg, 3.0));
-                }
-            }
-            pairs.push((
-                "ground on accent".into(),
-                &palette.ground,
-                &palette.accent,
-                4.5,
-            ));
-            for (what, fg, bg, need) in pairs {
-                let ratio = contrast(c(fg), c(bg));
-                if ratio < need {
-                    failures.push(format!("{scheme}: {what} is {ratio:.2}, needs {need}"));
-                }
-            }
-        }
+        let pairs = panelkit().pairs();
+        assert_eq!(pairs.len(), 2 * (2 * (6 + 6) + 1));
+        let failures: Vec<_> = pairs
+            .iter()
+            .filter(|p| !p.passes())
+            .map(|p| {
+                format!(
+                    "{}: {} on {} is {:.2}, needs {}",
+                    p.scheme, p.fg, p.bg, p.ratio, p.need
+                )
+            })
+            .collect();
         assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn a_theme_changes_single_tokens_and_refuses_unknown_ones() {
+        let theme: Theme = toml::from_str(
+            "[light]\naccent = \"#5b4fb3\"\n[dark]\naccent = \"#b4a9f5\"\n[fonts]\nmono = \"Mono X\"\n",
+        )
+        .unwrap();
+        let tokens = panelkit().with(&theme).unwrap();
+        assert_eq!(tokens.light.accent, "#5b4fb3");
+        assert_eq!(tokens.dark.accent, "#b4a9f5");
+        assert_eq!(tokens.dark.ground, "#17191f", "the rest stays");
+        assert_eq!(tokens.fonts.mono, "Mono X");
+        assert!(toml::from_str::<Theme>("[dark]\naccnet = \"#000000\"\n").is_err());
+        assert!(toml::from_str::<Theme>("[sizes]\ntext = 1\n").is_err());
+        let bad: Theme = toml::from_str("[dark]\naccent = \"lavender\"\n").unwrap();
+        let error = panelkit().with(&bad).unwrap_err();
+        assert!(
+            format!("{error:#}").starts_with("[theme.dark] accent: "),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn a_shown_ratio_rounds_down() {
+        let pair = Pair {
+            scheme: "dark",
+            fg: "accent".into(),
+            fg_hex: String::new(),
+            bg: "surface",
+            bg_hex: String::new(),
+            ratio: 4.479,
+            need: 4.5,
+        };
+        assert!((pair.shown() - 4.4).abs() < 1e-9);
+        assert!(!pair.passes());
     }
 
     #[test]

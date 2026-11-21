@@ -270,3 +270,79 @@ fn an_import_outside_the_page_or_from_a_package_fails() {
     );
     assert!(f.message.contains("only relative paths"), "{}", f.message);
 }
+
+/// A page on panelkit's tokens with `theme` after the `tokens` line of its `onepage.toml`.
+fn themed(name: &str, theme: &str) -> PathBuf {
+    let tokens = examples().join("../packages/panelkit/tokens.toml");
+    let config = format!("tokens = {:?}\n{theme}", tokens.display().to_string());
+    page(
+        name,
+        &[
+            ("onepage.toml", &config),
+            (
+                "src/app.tsx",
+                "import { h, render } from \"preact\";\nrender(<p class=\"text-accent\" />, document.body);\n",
+            ),
+        ],
+    )
+}
+
+#[test]
+fn a_theme_wins_in_both_schemes_and_under_data_theme() {
+    let dir = themed(
+        "themed",
+        "[theme.light]\naccent = \"#5b4fb3\"\n\n[theme.dark]\naccent = \"#b4a9f5\"\n",
+    );
+    let html = std::fs::read_to_string(onepage::build(&dir, None, true).unwrap()).unwrap();
+    let sheet = html::bodies(&html, "style").next().unwrap();
+    let block = |start: &str| {
+        let from = sheet.find(start).unwrap_or_else(|| panic!("{start}"));
+        let rest = &sheet[from..];
+        rest[..rest.find('}').unwrap()].to_owned()
+    };
+    for (start, accent) in [
+        (":root{color-scheme:light dark;", "#5b4fb3"),
+        (":root:not([data-theme=light]){", "#b4a9f5"),
+        ("[data-theme=light]{", "#5b4fb3"),
+        ("[data-theme=dark]{", "#b4a9f5"),
+    ] {
+        let block = block(start);
+        assert!(block.contains(&format!("--accent:{accent};")), "{block}");
+        assert!(
+            !block.contains("#1d6fb8") && !block.contains("#7cc4fa"),
+            "{block}"
+        );
+    }
+    assert!(sheet.contains("--ground:#17191f;"), "the rest stays");
+}
+
+#[test]
+fn a_theme_with_an_unknown_token_or_without_tokens_is_refused() {
+    let dir = themed("themed-unknown", "[theme.dark]\naccnet = \"#b4a9f5\"\n");
+    let error = onepage::build(&dir, None, true).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("unknown field `accnet`"),
+        "{error:#}"
+    );
+    let dir = page(
+        "themed-no-tokens",
+        &[("onepage.toml", "[theme.light]\naccent = \"#5b4fb3\"\n")],
+    );
+    let error = onepage::build(&dir, None, true).unwrap_err();
+    assert!(format!("{error:#}").contains("no `tokens`"), "{error:#}");
+}
+
+#[test]
+fn a_low_contrast_theme_fails_the_build_at_its_line() {
+    let dir = themed(
+        "themed-low",
+        "[theme.light]\naccent = \"#5b4fb3\"\n\n[theme.dark]\naccent = \"#7a6fd0\"\n",
+    );
+    let error = onepage::build(&dir, None, true).unwrap_err();
+    let (line, code) = onepage::report(&error);
+    assert_eq!(code, 1);
+    assert_eq!(
+        line,
+        "error: onepage.toml:6: [theme.dark] accent #7a6fd0 is 4.1:1 on ground, needs 4.5:1"
+    );
+}

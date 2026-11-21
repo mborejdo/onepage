@@ -30,6 +30,7 @@ pub fn report(e: &anyhow::Error) -> (String, u8) {
 /// `[wasm]` files next to it. Returns the path written.
 pub fn build(dir: &Path, out: Option<&Path>, minify: bool) -> Result<PathBuf> {
     let config = Config::load(dir)?;
+    config.check_theme(dir)?;
     let built = pagekit::build(&config.page(dir, minify))?;
     let out = out.map_or_else(|| dir.join(&config.out), Path::to_path_buf);
     let folder = out.parent().unwrap_or_else(|| Path::new("."));

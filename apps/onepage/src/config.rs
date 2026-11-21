@@ -6,8 +6,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
-use pagekit::{Csp, Page, Wasm};
+use anyhow::{Context, Result, bail};
+use pagekit::tokens::{Theme, Tokens};
+use pagekit::{Csp, Finding, Page, Wasm};
 use serde::Deserialize;
 
 /// The file name looked up in the page's folder.
@@ -35,6 +36,9 @@ pub struct Config {
     pub wasm: Option<Wasm>,
     /// A token file: CSS variables for both schemes, and its colour names as utilities.
     pub tokens: Option<PathBuf>,
+    /// Changes to single tokens of [`tokens`](Self::tokens): `[theme.light]`, `[theme.dark]`,
+    /// `[theme.fonts]`.
+    pub theme: Option<Theme>,
     /// A folder of unpacked npm packages, for bare imports.
     pub vendor: Option<PathBuf>,
     /// The import map: a bare specifier or package name to a package folder or a file.
@@ -54,6 +58,7 @@ impl Default for Config {
             csp: Csp::default(),
             wasm: None,
             tokens: None,
+            theme: None,
             vendor: None,
             imports: BTreeMap::new(),
         }
@@ -68,7 +73,66 @@ impl Config {
             return Ok(Self::default());
         }
         let text = std::fs::read_to_string(&path)?;
-        toml::from_str(&text).with_context(|| path.display().to_string())
+        let config: Self = toml::from_str(&text).with_context(|| path.display().to_string())?;
+        if config.theme.is_some() && config.tokens.is_none() {
+            bail!(
+                "{}: [theme] changes a token file, and there is no `tokens`",
+                path.display()
+            );
+        }
+        Ok(config)
+    }
+
+    /// With a `[theme]`, hold the changed palettes to the token file's contrast duties
+    /// ([`Tokens::pairs`]). The first failing pair a change takes part in is a [`Finding`] at
+    /// the change's line.
+    pub fn check_theme(&self, dir: &Path) -> Result<()> {
+        let (Some(theme), Some(tokens)) = (&self.theme, &self.tokens) else {
+            return Ok(());
+        };
+        let tokens = Tokens::load(&dir.join(tokens))?
+            .with(theme)
+            .context(PROJECT_FILE)?;
+        let text = std::fs::read_to_string(dir.join(PROJECT_FILE)).unwrap_or_default();
+        for pair in tokens.pairs().iter().filter(|p| !p.passes()) {
+            let changed = if pair.scheme == "light" {
+                theme.light.named()
+            } else {
+                theme.dark.named()
+            };
+            let is_changed = |name: &str| changed.iter().any(|(n, _)| *n == name);
+            let table = format!("theme.{}", pair.scheme);
+            let (key, message) = if is_changed(&pair.fg) {
+                (
+                    pair.fg.as_str(),
+                    format!(
+                        "[{table}] {} {} is {}:1 on {}, needs {}:1",
+                        pair.fg,
+                        pair.fg_hex,
+                        pair.shown(),
+                        pair.bg,
+                        pair.need
+                    ),
+                )
+            } else if is_changed(pair.bg) {
+                (
+                    pair.bg,
+                    format!(
+                        "[{table}] {} {} is {}:1 on {} {}, needs {}:1",
+                        pair.fg,
+                        pair.fg_hex,
+                        pair.shown(),
+                        pair.bg,
+                        pair.bg_hex,
+                        pair.need
+                    ),
+                )
+            } else {
+                continue;
+            };
+            return Err(Finding::new(PROJECT_FILE, line_of(&text, &table, key), message).into());
+        }
+        Ok(())
     }
 
     /// The page in `dir` these settings describe.
@@ -84,11 +148,36 @@ impl Config {
             csp: self.csp.clone(),
             wasm: self.wasm.clone(),
             tokens: self.tokens.clone(),
+            theme: self.theme.clone(),
             imports: self.imports.clone(),
             vendor: self.vendor.clone(),
             minify,
         }
     }
+}
+
+/// The 1-based line of `key` in the `[table]` of a TOML text, else the table's line, else 0.
+fn line_of(text: &str, table: &str, key: &str) -> usize {
+    let header = format!("[{table}]");
+    let mut inside = None;
+    for (i, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            if inside.is_some() {
+                break;
+            }
+            if line.starts_with(&header) {
+                inside = Some(i + 1);
+            }
+        } else if inside.is_some()
+            && line
+                .strip_prefix(key)
+                .is_some_and(|rest| rest.trim_start().starts_with('='))
+        {
+            return i + 1;
+        }
+    }
+    inside.unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -109,5 +198,30 @@ mod tests {
         .unwrap();
         assert_eq!(config.imports["kit"], PathBuf::from("../kit"));
         assert_eq!(config.vendor, Some(PathBuf::from("../vendor")));
+    }
+
+    #[test]
+    fn a_theme_knows_its_token_names() {
+        let config: Config =
+            toml::from_str("tokens = \"t.toml\"\n[theme.dark]\naccent = \"#b4a9f5\"\n").unwrap();
+        assert_eq!(
+            config.theme.unwrap().dark.accent.as_deref(),
+            Some("#b4a9f5")
+        );
+        let error = toml::from_str::<Config>("[theme.dark]\naccnet = \"#b4a9f5\"\n").unwrap_err();
+        assert!(
+            error.to_string().contains("unknown field `accnet`"),
+            "{error}"
+        );
+        assert!(toml::from_str::<Config>("[theme.sizes]\ntext = 1\n").is_err());
+    }
+
+    #[test]
+    fn a_key_is_found_in_its_table() {
+        let text = "tokens = \"t\"\n[theme.light]\naccent = \"#000000\"\n\n[theme.dark]\nink = \"#000000\"\naccent=\"#000000\"\n";
+        assert_eq!(line_of(text, "theme.light", "accent"), 3);
+        assert_eq!(line_of(text, "theme.dark", "accent"), 7);
+        assert_eq!(line_of(text, "theme.dark", "ground"), 5);
+        assert_eq!(line_of(text, "theme.fonts", "sans"), 0);
     }
 }

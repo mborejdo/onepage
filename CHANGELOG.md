@@ -21,6 +21,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - `preact/jsx-runtime` from the inlined runtime, and namespace imports of `preact`: every
   package shares the page's one Preact.
 - `onepage dev` also watches the mapped packages and the token file.
+- `[theme.light]`, `[theme.dark]` and `[theme.fonts]` in `onepage.toml`: single tokens changed
+  per page, applied before the variables are written, so they hold in both schemes and under
+  `[data-theme]`. Only known names; `[theme]` needs `tokens`. The changed palettes are checked
+  for WCAG AA (text 4.5:1 on ground and surface, ground 4.5:1 on accent, series 3:1); a
+  failing pair fails the build at its line in `onepage.toml`.
+- `pagekit::tokens::Theme`, `Tokens::with` and `Tokens::pairs`, the contrast duties as data;
+  `Page::theme`.
 - `packages/panelkit`: the token file and a Preact component set (controls, cards, alerts,
   facts, tabs, figures, a bar, split panes, a preview, Tabler glyphs) with an MCP Apps client,
   `panelkit/mcp`. `examples/kit` shows every component.

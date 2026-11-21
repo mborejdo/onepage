@@ -110,6 +110,16 @@ media = []
 [wasm]
 files = ["add.wasm"]         # copied next to `out`, by file name
 glue = "src/wasm"            # generated glue (wasm-bindgen): skipped by the checks
+
+# Single tokens changed for this page; needs `tokens`. Any of the nine colours per scheme.
+[theme.light]
+accent = "#5b4fb3"
+
+[theme.dark]
+accent = "#b4a9f5"
+
+[theme.fonts]                # sans, mono, display
+mono = "JetBrains Mono"
 ```
 
 The policy, as the first element of `<head>`:
@@ -144,6 +154,19 @@ So the system picks the scheme, and `<html data-theme="dark">` (or any element's
 subtree) overrides it. Each colour name and `series-1` to `series-n` is also a utility colour:
 `bg-surface`, `text-muted`, `border-border`, `bg-accent/15`, `fill-series-2`; a page writes no
 colour classes of its own.
+
+`[theme.light]`, `[theme.dark]` and `[theme.fonts]` change single tokens before the variables
+are written, so a change holds in both schemes and under `data-theme`; a page's own
+`:root{--accent:...}` would lose to the dark block. An unknown name is an error, and so is
+`[theme]` without `tokens`. The changed palettes are held to the token file's contrast duties,
+and a failing pair fails the build:
+
+```text
+error: onepage.toml:6: [theme.dark] accent #7a6fd0 is 4.1:1 on ground, needs 4.5:1
+```
+
+Text colours (`ink`, `muted`, `accent`, `ok`, `warn`, `stop`) need 4.5:1 on `ground` and
+`surface`, `ground` needs 4.5:1 on `accent`, each series colour 3:1 on both.
 
 ### Bare imports
 

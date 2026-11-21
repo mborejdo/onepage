@@ -65,6 +65,9 @@ pub struct Page {
     pub wasm: Option<Wasm>,
     /// A token file ([`tokens`]): CSS variables, and colour names for the utilities.
     pub tokens: Option<PathBuf>,
+    /// Changes to single tokens, applied before the variables are written. The caller checks
+    /// the result's contrast ([`tokens::Tokens::pairs`]).
+    pub theme: Option<tokens::Theme>,
     /// The import map: a bare specifier or package name to a package folder or a file.
     pub imports: BTreeMap<String, PathBuf>,
     /// A folder of unpacked npm packages, for the bare imports the map does not name.
@@ -86,6 +89,7 @@ impl Page {
             csp: Csp::default(),
             wasm: None,
             tokens: None,
+            theme: None,
             imports: BTreeMap::new(),
             vendor: None,
             minify: true,
@@ -242,7 +246,13 @@ pub fn build(page: &Page) -> Result<Built> {
     let tokens = page
         .tokens
         .as_ref()
-        .map(|t| tokens::Tokens::load(&page.root.join(t)))
+        .map(|t| {
+            let tokens = tokens::Tokens::load(&page.root.join(t))?;
+            match &page.theme {
+                Some(theme) => tokens.with(theme),
+                None => Ok(tokens),
+            }
+        })
         .transpose()?;
     let style = css::Style {
         tokens: tokens.as_ref(),
