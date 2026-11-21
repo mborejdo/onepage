@@ -153,6 +153,9 @@ function Marks() {
           Type <Code>onepage build</Code>, or the value that was: <Code muted>0.0.9</Code>, in
           words: <Code sans>in progress</Code>.
         </p>
+        <p class="m-0 text-[13px]">
+          Data stays as typed: <Code>{"a -> b => c != d <= e"}</Code>, and in text: {"a -> b != c"}.
+        </p>
       </div>
     </Card>
   );

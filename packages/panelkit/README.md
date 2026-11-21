@@ -8,7 +8,10 @@ one short sheet.
   and spacing, in two schemes.
 - `src/` - the components (`panelkit`), the glyphs (`panelkit/glyphs`) and the MCP Apps client
   (`panelkit/mcp`).
-- `base.css` - what a utility cannot say: the page's ground and ink, focus, the figures' motion.
+- `base.css` - what a utility cannot say: the faces, the page's ground and ink, focus, the
+  figures' motion.
+- `fonts/` - the token faces, embedded: Inter and Fira Code, SIL OFL 1.1 (see
+  [LICENSE-inter](LICENSE-inter) and [LICENSE-fira-code](LICENSE-fira-code)).
 
 ## Use it from a onepage page
 
@@ -52,11 +55,38 @@ render(
 
 Text colours reach 4.5:1 on `ground` and `surface` in both schemes, `ground` reaches 4.5:1 on
 `accent` (a filled button's label), and the series reach 3:1 (pagekit's `tokens` tests check
-it). Fonts: `Inter`, `Fira Code`, with the system faces behind them; nothing is embedded.
+it). Fonts: `Inter` for text, its display cut for headings, `Fira Code` for mono, with the system
+faces behind them.
 `--radius-sm|md|lg` (4, 8, 12px) and `--space-gap` (12px) shape the components.
 
 In a class: `bg-surface`, `text-muted`, `border-border`, `bg-accent/15`, `text-series-3`; in a
-value: `rounded-[var(--radius-md)]`, `p-[var(--space-gap)]`, `font-[var(--font-mono)]`.
+value: `rounded-[var(--radius-md)]`, `p-[var(--space-gap)]`. `font-sans` and `font-mono` are the
+token faces.
+
+## Faces
+
+`base.css` declares Inter and Fira Code from `fonts/` (onepage inlines them into the page), so a
+page looks the same where they are not installed: about 85 KB of woff2, 113 KB in the page.
+Both are latin subsets of the variable fonts at weights 300 to 700. Inter keeps its optical
+size axis: text draws at its own size, headings (`h1` to `h3`) at `opsz` 32, which is Inter
+Display. Neither file has contextual alternates or ligatures, so `->`, `=>` and `!=` stay as
+typed, and `base.css` turns ligatures off for `code`, `kbd`, `samp`, `pre` and `font-mono`
+whatever face `--font-mono` names. Figures (`Gauge`, `Counter`, `Facts`, tab counts, a numeric
+`Input`) use tabular digits.
+
+To rebuild a file (fonttools with brotli), from `InterVariable.ttf` (Inter 4.1) and
+`FiraCode-VF.ttf` (Fira Code 6.2):
+
+```sh
+U="U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,\
+U+2000-206F,U+20AC,U+2122,U+2190-2195,U+2212,U+2215,U+2248,U+2260,U+2264-2265,U+FEFF,U+FFFD"
+fonttools varLib.instancer InterVariable.ttf wght=300:700 -o inter.ttf
+pyftsubset inter.ttf --unicodes="$U" --flavor=woff2 --output-file=fonts/inter.woff2 \
+  --layout-features=ccmp,locl,mark,mkmk,kern,case,tnum,frac,numr,dnom
+fonttools varLib.instancer FiraCode-VF.ttf wght=300:700 -o fira.ttf
+pyftsubset fira.ttf --unicodes="$U" --flavor=woff2 --output-file=fonts/fira-code.woff2 \
+  --layout-features=ccmp,locl,mark,mkmk
+```
 
 ## Components
 

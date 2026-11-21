@@ -40,7 +40,7 @@ export function Gauge(props: {
             style={{ width: `${(at * 100).toFixed(1)}%` }}
           />
         </div>
-        <span class={`font-[var(--font-mono)] text-[13px] tabular-nums ${TONE_TEXT[tone]}`}>
+        <span class={`font-mono text-[13px] tabular-nums ${TONE_TEXT[tone]}`}>
           {text}
         </span>
       </div>

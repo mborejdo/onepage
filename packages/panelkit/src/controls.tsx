@@ -176,7 +176,7 @@ export function Textarea(props: {
 }) {
   return (
     <textarea
-      class={`${INPUT} resize-y leading-normal ${props.mono ? "font-[var(--font-mono)]" : ""}`}
+      class={`${INPUT} resize-y leading-normal ${props.mono ? "font-mono" : ""}`}
       rows={props.rows ?? 4}
       value={props.value ?? ""}
       placeholder={props.placeholder}
@@ -360,7 +360,7 @@ export function Tag(props: {
 /** A value as a value, on a faint ground: a key, a field's content, what a person types.
  *  Mono by default; `sans` keeps the ground and drops the mono; `muted` is the value that was. */
 export function Code(props: { children?: ComponentChildren; muted?: boolean; sans?: boolean }) {
-  const face = props.sans ? "font-[inherit] text-[12px]" : "font-[var(--font-mono)] text-[11.5px]";
+  const face = props.sans ? "font-[inherit] text-[12px]" : "font-mono text-[11.5px]";
   return (
     <code
       class={`rounded-[var(--radius-sm)] bg-muted/15 px-1 py-px leading-none whitespace-nowrap ${face} ${

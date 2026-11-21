@@ -2,6 +2,23 @@
    the utilities, so a utility on an element wins over it. The values are the token variables
    (tokens.toml); the colours follow the scheme by themselves. */
 
+/* The token faces, embedded (onepage inlines the files): a page looks the same where Inter and
+   Fira Code are not installed. Latin subsets of the variable fonts, SIL OFL 1.1 (LICENSE-inter,
+   LICENSE-fira-code). Inter keeps its optical size axis, so Inter Display is in the same file;
+   neither file has contextual alternates or ligatures, so `->`, `=>` and `!=` stay as typed. */
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/inter.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Code";
+  src: url("fonts/fira-code.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
 /* The page and every `[data-theme]` subtree: the ground and the ink of its scheme. */
 body,
 [data-theme] {
@@ -15,8 +32,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Headings in the display cut: Inter's largest optical size is Inter Display. */
 h1, h2, h3 {
   font-family: var(--font-display);
+  font-variation-settings: "opsz" 32;
+}
+
+/* Mono is for data: no ligatures, whatever face `--font-mono` names. */
+code, kbd, samp, pre, .font-mono {
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
 }
 
 a {

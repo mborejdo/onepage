@@ -238,10 +238,9 @@ pub fn build(page: &Page) -> Result<Built> {
             );
         }
         if let Some(sheet) = packages::style(&kit)? {
-            base.push(
-                std::fs::read_to_string(&sheet)
-                    .with_context(|| format!("reading {}", sheet.display()))?,
-            );
+            let text = std::fs::read_to_string(&sheet)
+                .with_context(|| format!("reading {}", sheet.display()))?;
+            base.push(css::inline_fonts(&text, sheet.parent().unwrap_or(&kit))?);
         }
     }
     let tokens = page

@@ -42,6 +42,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - `packages/panelkit`: the token file and a Preact component set (controls, cards, alerts,
   facts, tabs, figures, a bar, split panes, a preview, Tabler glyphs) with an MCP Apps client,
   `panelkit/mcp`. `examples/kit` shows every component.
+- A package sheet's relative `url(...)` to a `.woff2` or `.woff` file is inlined as a `data:`
+  URI: the page stays one file and carries its faces.
+- panelkit embeds its token faces: Inter (with its display cut for headings) and Fira Code,
+  latin subsets without contextual alternates or ligatures, about 113 KB in the page. Mono
+  (`code`, `kbd`, `samp`, `pre`, `font-mono`) has ligatures off whatever the face.
 
 ### Changed
 
@@ -51,6 +56,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Not published to crates.io: Biome's crates are git dependencies (`publish = false`).
 - `pagekit::bundle::bundle` returns the script and the modules it loaded;
   `pagekit::css::generate` and `pagekit::test::run` take the page's style and page.
+- With a token file, the `font-sans` and `font-mono` utilities are `var(--font-sans)` and
+  `var(--font-mono)`, not encre-css's fixed system stacks.
 
 ## 0.1.0 - unreleased
 

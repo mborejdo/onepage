@@ -52,6 +52,10 @@ fn the_kit_page_gets_the_tokens_the_kit_and_its_sheet() {
     );
     assert!(sheet.contains("[data-theme=dark]{color-scheme:dark;--ground:#17191f;"));
     assert!(sheet.contains(".pk-flap::after"), "the kit's base.css");
+    assert!(
+        sheet.contains("url(\"data:font/woff2;base64,d09GMg"),
+        "the kit's faces, inlined"
+    );
     for rule in [
         ".bg-surface {",
         ".text-muted {",

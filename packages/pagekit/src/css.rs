@@ -71,8 +71,56 @@ pub fn generate(sources: &[String], shell: &str, style: &Style<'_>) -> String {
     config.preflight = Preflight::new_none();
     let all = sources.iter().map(String::as_str).chain([shell]);
     out.push('\n');
-    out.push_str(&encre_css::generate(all, &config));
+    let utilities = encre_css::generate(all, &config);
+    if style.tokens.is_some() {
+        // encre-css writes `font-sans` and `font-mono` with fixed system stacks; with a token
+        // file they are its faces, like the preflight's.
+        out.push_str(
+            &utilities
+                .replace(SANS_STACK, "font-family: var(--font-sans);")
+                .replace(MONO_STACK, "font-family: var(--font-mono);"),
+        );
+    } else {
+        out.push_str(&utilities);
+    }
     out
+}
+
+/// encre-css's `font-sans` declaration.
+const SANS_STACK: &str = r#"font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";"#;
+/// encre-css's `font-mono` declaration.
+const MONO_STACK: &str =
+    r#"font-family: Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;"#;
+
+/// `sheet` with every relative `url(...)` to a font file (`.woff2`, `.woff`) as a `data:` URI,
+/// read from `dir`: the page stays one file and the faces come with it. Other URLs stay.
+pub fn inline_fonts(sheet: &str, dir: &Path) -> Result<String> {
+    use base64::Engine as _;
+    use std::fmt::Write as _;
+    let mut out = String::with_capacity(sheet.len());
+    let mut rest = sheet;
+    while let Some(at) = rest.find("url(") {
+        let open = at + "url(".len();
+        out.push_str(&rest[..open]);
+        rest = &rest[open..];
+        let Some(close) = rest.find(')') else { break };
+        let target = rest[..close].trim().trim_matches(['"', '\'']);
+        let mime = match Path::new(target).extension().and_then(|e| e.to_str()) {
+            Some("woff2") => "font/woff2",
+            Some("woff") => "font/woff",
+            _ => continue,
+        };
+        if target.contains(':') || target.starts_with(['/', '#']) {
+            continue;
+        }
+        let path = dir.join(target);
+        let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+        let data = base64::engine::general_purpose::STANDARD.encode(bytes);
+        let _ = write!(out, "\"data:{mime};base64,{data}\"");
+        rest = &rest[close..];
+    }
+    out.push_str(rest);
+    Ok(out)
 }
 
 /// The sheet without comments and indentation: a strip, not a rewrite.
@@ -122,8 +170,17 @@ mod tests {
             tokens: Some(&tokens),
             base: &base,
         };
-        let html = "<p class=\"bg-surface text-muted border-border bg-accent/15 text-series-2\">";
+        let html = "<p class=\"bg-surface text-muted border-border bg-accent/15 text-series-2 \
+                    font-sans font-mono\">";
         let css = generate(&[html.into()], "", &style);
+        assert!(
+            !css.contains(MONO_STACK) && !css.contains(SANS_STACK),
+            "{css}"
+        );
+        assert!(
+            css.contains(".font-mono {\n  font-family: var(--font-mono);"),
+            "{css}"
+        );
         assert!(css.starts_with(":root{"), "{css}");
         for rule in [
             "background-color: var(--surface)",
@@ -136,6 +193,23 @@ mod tests {
             assert!(css.contains(rule), "{rule}: {css}");
         }
         assert!(css.find(".pk-x").unwrap() < css.find(".bg-surface").unwrap());
+    }
+
+    #[test]
+    fn a_relative_font_url_is_inlined_and_the_rest_stays() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../panelkit");
+        let sheet = "@font-face{src:url(\"fonts/inter.woff2\") format(\"woff2\")}\n\
+                     .a{background:url(x.png)}.b{src:url(https://x.test/f.woff2)}";
+        let css = inline_fonts(sheet, &dir).unwrap();
+        assert!(
+            css.starts_with("@font-face{src:url(\"data:font/woff2;base64,d09GMg"),
+            "{}",
+            &css[..80]
+        );
+        assert!(css.ends_with(
+            ") format(\"woff2\")}\n.a{background:url(x.png)}.b{src:url(https://x.test/f.woff2)}"
+        ));
+        assert!(inline_fonts("a{src:url(missing.woff2)}", &dir).is_err());
     }
 
     #[test]
