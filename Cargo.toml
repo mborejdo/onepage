@@ -1,0 +1,86 @@
+# onepage: a Preact TSX page in, one self-contained HTML file out. swc bundles the module graph,
+# encre-css writes the utility sheet, and a strict Content-Security-Policy pins the one inline
+# script by its hash. No Node, no npm.
+[workspace]
+resolver = "3"
+members = ["apps/onepage", "packages/pagekit"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+# The highest floor any dependency declares (swc).
+rust-version = "1.91"
+authors = ["Michael Borejdo <mborejdo@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mborejdo/onepage"
+homepage = "https://github.com/mborejdo/onepage"
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
+serde = { version = "1", features = ["derive"] }
+toml = { version = "1", default-features = false, features = ["std", "serde", "parse"] }
+# The CSP hash of the inline script and style.
+sha2 = "0.10"
+base64 = "0.22"
+# TypeScript, JSX, the module graph and the minifier: one parser for all of it.
+swc_core = { version = "82", features = [
+    "common",
+    "ecma_ast",
+    "ecma_visit",
+    "ecma_parser",
+    "ecma_parser_typescript",
+    "ecma_codegen",
+    "ecma_transforms_react",
+    "ecma_transforms_typescript",
+    "ecma_minifier",
+    "ecma_loader_node",
+    "bundler",
+] }
+# Tailwind-style utilities from the class names the source uses.
+encre-css = "0.20"
+# `onepage test`: a JavaScript engine in Rust, behind the off-by-default `test` feature.
+boa_engine = "0.22"
+
+# The workspace's own crates.
+pagekit = { path = "packages/pagekit", version = "0.1.0" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# Unavoidable with many transitive deps (swc alone pulls in several versions of some).
+multiple_crate_versions = "allow"
+module_name_repetitions = "allow"
+# No required `# Errors` / `# Panics` sections, no doc-paragraph length limit.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+too_long_first_doc_paragraph = "allow"
+# Contradicts rustc `unreachable_pub`, which is kept.
+redundant_pub_crate = "allow"
+# Stricter than the groups: no panicking shortcuts or stray output in library code (tests are
+# exempt, see clippy.toml), and every `#[allow]` says why.
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+allow_attributes_without_reason = "warn"
+
+[workspace.lints.rustdoc]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+strip = true

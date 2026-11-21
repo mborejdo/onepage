@@ -1,0 +1,7 @@
+# A page that fetches and runs a WebAssembly module.
+title = "Add, in WebAssembly"
+
+# The opt-in: WebAssembly may be used, 'wasm-unsafe-eval' joins the policy, and the files are
+# copied next to the built page.
+[wasm]
+files = ["add.wasm"]

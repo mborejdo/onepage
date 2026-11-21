@@ -1,0 +1,30 @@
+[package]
+name = "pagekit"
+description = "A Preact TSX module graph to one self-contained HTML page: swc bundle, encre-css utilities, a hash-pinned CSP."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["preact", "bundler", "html", "csp", "swc"]
+categories = ["web-programming", "development-tools::build-utils"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# `pagekit::test`: run `*.test.ts` files in boa, an embedded JavaScript engine.
+test = ["dep:boa_engine"]
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+boa_engine = { workspace = true, optional = true }
+encre-css.workspace = true
+serde.workspace = true
+sha2.workspace = true
+swc_core.workspace = true

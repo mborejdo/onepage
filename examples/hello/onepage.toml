@@ -1,0 +1,4 @@
+# The smallest page: a counter. Every key is optional.
+title = "Hello"
+favicon = "favicon.svg"
+style = "src/style.css"

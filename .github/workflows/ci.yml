@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The toolchain (with rustfmt and clippy) comes from rust-toolchain.toml; rustup
+      # installs it on the first cargo call.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: |
+          cargo clippy --all-targets --all-features --locked -- -D warnings
+          cargo clippy --all-targets --no-default-features --locked -- -D warnings
+      - name: test
+        run: |
+          cargo test --all-features --locked
+          cargo test --no-default-features --locked
+      - name: doc
+        run: cargo doc --no-deps --all-features --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - name: deny
+        run: cargo deny check
+      - name: Build the example pages
+        run: |
+          cargo run --release --locked --all-features -- test examples/hello
+          cargo run --release --locked -- build examples/hello --out out/hello/index.html
+          cargo run --release --locked -- build examples/wasm --out out/wasm/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: example-pages
+          path: out/

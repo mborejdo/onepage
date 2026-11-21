@@ -1,0 +1,4 @@
+/* The page's own rules, after the utilities. */
+button:hover {
+  opacity: 0.8;
+}

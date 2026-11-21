@@ -1,0 +1,58 @@
+//! `onepage`: build a Preact TSX page into one self-contained HTML file.
+//!
+//! ```sh
+//! onepage new hello
+//! onepage build hello
+//! onepage dev hello --port 8000
+//! ```
+
+#![allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "the binary prints what each command did, and the failure on stderr"
+)]
+
+mod cli;
+
+use std::process::ExitCode;
+
+use clap::Parser;
+
+use crate::cli::{Cli, Command};
+
+fn run(cli: Cli) -> anyhow::Result<u8> {
+    match cli.command {
+        Command::Build { dir, out } => {
+            let out = onepage::build(&dir, out.as_deref(), true)?;
+            let size = std::fs::metadata(&out).map_or(0, |m| m.len());
+            println!("{}  {} KB", out.display(), size / 1024);
+        },
+        Command::Dev { dir, port } => onepage::dev::run(&dir, port)?,
+        Command::New { name } => println!("{}", onepage::new_page::run(&name)?),
+        #[cfg(feature = "test")]
+        Command::Test { dir } => {
+            let outcomes = pagekit::test::run(&dir)?;
+            for outcome in &outcomes {
+                println!("{}", outcome.file.display());
+                for line in &outcome.lines {
+                    println!("  {line}");
+                }
+            }
+            return Ok(u8::from(
+                !outcomes.iter().all(pagekit::test::Outcome::passed),
+            ));
+        },
+    }
+    Ok(0)
+}
+
+fn main() -> ExitCode {
+    match run(Cli::parse()) {
+        Ok(code) => ExitCode::from(code),
+        Err(e) => {
+            let (line, code) = onepage::report(&e);
+            eprintln!("{line}");
+            ExitCode::from(code)
+        },
+    }
+}
