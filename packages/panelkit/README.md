@@ -6,8 +6,8 @@ with. Plain Preact and hooks; the look is utility classes on the token names and
 - `tokens.toml` - colours, faces, sizes, chart series, radii and spacing, in two schemes.
 - `src/` - components (`panelkit`), glyphs (`panelkit/glyphs`), MCP Apps client (`panelkit/mcp`).
 - `base.css` - what a utility can't say: faces, page ground and ink, focus, figure motion.
-- `fonts/` - Inter and Fira Code, SIL OFL 1.1 ([LICENSE-inter](LICENSE-inter),
-  [LICENSE-fira-code](LICENSE-fira-code)).
+- `fonts/` - Inter and Fira Code, SIL OFL 1.1 ([LICENSE-inter](fonts/LICENSE-inter),
+  [LICENSE-fira-code](fonts/LICENSE-fira-code)).
 
 ## Use it from a onepage page
 

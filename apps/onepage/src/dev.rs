@@ -30,7 +30,7 @@ pub fn run(dir: &Path, port: Option<u16>) -> Result<()> {
     let folder = out.parent().unwrap_or(dir).to_path_buf();
     if let Some(port) = port {
         let listener = TcpListener::bind(("127.0.0.1", port))
-            .with_context(|| format!("binding 127.0.0.1:{port}"))?;
+            .with_context(|| format!("bind 127.0.0.1:{port}"))?;
         let index = out.file_name().map(PathBuf::from).unwrap_or_default();
         let root = folder.clone();
         std::thread::spawn(move || serve(&listener, &root, &index));

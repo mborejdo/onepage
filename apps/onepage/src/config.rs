@@ -75,8 +75,10 @@ impl Config {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let text = std::fs::read_to_string(&path)?;
-        let config: Self = toml::from_str(&text).with_context(|| path.display().to_string())?;
+        let text =
+            std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+        let config: Self =
+            toml::from_str(&text).with_context(|| format!("parse {}", path.display()))?;
         if config.theme.is_some() && config.tokens.is_none() {
             bail!(
                 "{}: [theme] changes a token file, and there is no `tokens`",

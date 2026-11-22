@@ -7,9 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Added
 
 - `onepage lint [DIR]`: Biome's `recommended` lint and formatter over the page's own sources
-  (not `vendor` or `[wasm] glue`), JSX under `h`/`Fragment`. One `error:`/`notice:`
-  `file:line: rule: message` line per finding, exit 1 on an error, unformatted files are
-  `lint/format` errors. Mapped packages are linted read-only, as notices.
+  (not `vendor` or `[wasm] glue`), JSX under `h`/`Fragment`. One
+  `file:line: error|note: rule: message` line per finding on stdout, then `N errors, 0 warnings`;
+  exit 1 on an error, unformatted files are `lint/format` errors. Mapped packages are linted
+  read-only, as notes.
 - `onepage lint --fix`: safe fixes and formatter (two spaces, 100 columns, double quotes,
   trailing commas, semicolons) written in place.
 - `[lint]`: `groups` and `rules` at `error`, `notice` or `off`; unknown names are errors.
@@ -53,6 +54,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   `pagekit::test::run` take the page's style and page.
 - With a token file, `font-sans`/`font-mono` are `var(--font-sans)`/`var(--font-mono)`, not
   encre-css's system stacks.
+- A check that fails the build prints `file:line: error: message`.
+- Failure reasons say what was done: `read {path}`, `write {path}`, `parse {path}`; a bad
+  colour is `expected a #rrggbb colour, got "x"`.
+- Every subcommand's `--help` has examples and exit codes; `--out FILE`, `--port PORT`.
+- panelkit's font licences sit next to the fonts, in `fonts/`.
 
 ## 0.1.0 - unreleased
 

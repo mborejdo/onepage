@@ -19,7 +19,60 @@ Examples:
 
 Exit codes:
   0  done
-  1  the page has a mistake (one `error: file:line: message` line each on stderr)
+  1  the page has a mistake (one `file:line: error: message` line each)
+  2  onepage could not do what you asked (the reason on stderr)";
+
+/// The end of `onepage build --help`.
+const BUILD_FOOTER: &str = "\
+Examples:
+  onepage build hello                         write hello/dist/index.html, minified
+  onepage build hello --out site/index.html   write there instead
+
+Exit codes:
+  0  written (its path and size on stdout)
+  1  the page has a mistake (one `file:line: error: message` line each on stderr)
+  2  onepage could not do what you asked (the reason on stderr)";
+
+/// The end of `onepage dev --help`.
+const DEV_FOOTER: &str = "\
+Examples:
+  onepage dev hello                 rebuild hello/dist/index.html on save, unminified
+  onepage dev hello --port 8000     and serve it on http://127.0.0.1:8000/
+
+It runs until stopped; a failed rebuild prints its reason on stderr and waits for the next save.
+
+Exit codes:
+  2  the config can't be read or the port can't be bound (the reason on stderr)";
+
+/// The end of `onepage lint --help`.
+const LINT_FOOTER: &str = "\
+Examples:
+  onepage lint hello                one `file:line: error: rule: message` line per finding, on stdout
+  onepage lint hello --fix          Biome's safe fixes and formatter, written back
+
+Exit codes:
+  0  no errors (notes only)
+  1  at least one error
+  2  onepage could not do what you asked (the reason on stderr)";
+
+/// The end of `onepage new --help`.
+const NEW_FOOTER: &str = "\
+Examples:
+  onepage new hello                 make hello/onepage.toml, index.html, src/app.tsx
+
+Exit codes:
+  0  made
+  2  the folder exists already or can't be written (the reason on stderr)";
+
+/// The end of `onepage test --help`.
+#[cfg(feature = "test")]
+const TEST_FOOTER: &str = "\
+Examples:
+  onepage test hello                run hello/src/**/*.test.ts, one line per test
+
+Exit codes:
+  0  every test passed
+  1  at least one test failed
   2  onepage could not do what you asked (the reason on stderr)";
 
 /// The `onepage` command line.
@@ -34,24 +87,27 @@ pub(crate) struct Cli {
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
     /// Fix and format the page's sources, then build it into one minified HTML file.
+    #[command(after_help = BUILD_FOOTER)]
     Build {
         /// The page's folder.
         #[arg(default_value = ".")]
         dir: PathBuf,
-        /// Write here instead of `out` from onepage.toml.
-        #[arg(long)]
+        /// Write here instead of `out` from onepage.toml (--out site/index.html).
+        #[arg(long, value_name = "FILE")]
         out: Option<PathBuf>,
     },
     /// Rebuild on every change, unminified; serve the result with `--port`.
+    #[command(after_help = DEV_FOOTER)]
     Dev {
         /// The page's folder.
         #[arg(default_value = ".")]
         dir: PathBuf,
-        /// Serve the output folder on 127.0.0.1 at this port.
-        #[arg(long)]
+        /// Serve the output folder on 127.0.0.1 at this port (--port 8000).
+        #[arg(long, value_name = "PORT")]
         port: Option<u16>,
     },
     /// Lint the page's sources with Biome; a file the formatter would change is a finding.
+    #[command(after_help = LINT_FOOTER)]
     Lint {
         /// The page's folder.
         #[arg(default_value = ".")]
@@ -61,15 +117,83 @@ pub(crate) enum Command {
         fix: bool,
     },
     /// Make a new page folder that builds on the first try.
+    #[command(after_help = NEW_FOOTER)]
     New {
         /// The folder to create.
         name: PathBuf,
     },
     /// Run the page's `src/**/*.test.ts` files in an embedded JavaScript engine.
     #[cfg(feature = "test")]
+    #[command(after_help = TEST_FOOTER)]
     Test {
         /// The page's folder.
         #[arg(default_value = ".")]
         dir: PathBuf,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::CommandFactory;
+
+    use super::*;
+
+    fn help_of(command: &clap::Command) -> String {
+        command.clone().render_long_help().to_string()
+    }
+
+    /// The root and every subcommand but `help`.
+    fn commands() -> Vec<clap::Command> {
+        let root = Cli::command();
+        let mut commands = vec![root.clone()];
+        commands.extend(
+            root.get_subcommands()
+                .filter(|c| c.get_name() != "help")
+                .cloned(),
+        );
+        commands
+    }
+
+    #[test]
+    fn cli_definition_is_consistent() {
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn every_help_has_examples_and_exit_codes() {
+        for command in commands() {
+            let help = help_of(&command);
+            assert!(help.contains("Examples:"), "{}", command.get_name());
+            assert!(help.contains("Exit codes:"), "{}", command.get_name());
+        }
+    }
+
+    #[test]
+    fn every_help_is_keyboard_characters() {
+        for command in commands() {
+            assert!(help_of(&command).is_ascii(), "{}", command.get_name());
+        }
+    }
+
+    #[test]
+    fn every_flag_has_an_example() {
+        for command in commands() {
+            let help = help_of(&command);
+            for arg in command.get_arguments() {
+                let Some(long) = arg.get_long().filter(|l| !matches!(*l, "help" | "version"))
+                else {
+                    continue;
+                };
+                let flag = format!("--{long}");
+                let in_flag_help = arg
+                    .get_help()
+                    .is_some_and(|h| h.to_string().contains(&flag));
+                let in_footer = help
+                    .lines()
+                    .filter(|l| l.trim_start().starts_with("onepage "))
+                    .any(|l| l.contains(&flag));
+                assert!(in_flag_help || in_footer, "{flag} has no example");
+            }
+        }
+    }
 }

@@ -32,7 +32,8 @@ fn run(cli: Cli) -> anyhow::Result<u8> {
         Command::Dev { dir, port } => onepage::dev::run(&dir, port)?,
         Command::Lint { dir, fix } => {
             let lint = onepage::lint(&dir, fix)?;
-            eprint!("{lint}");
+            print!("{lint}");
+            println!("{} errors, 0 warnings", lint.errors());
             return Ok(u8::from(lint.errors() > 0));
         },
         Command::New { name } => println!("{}", onepage::new_page::run(&name)?),

@@ -107,9 +107,9 @@ pub fn style(dir: &Path) -> Result<Option<PathBuf>> {
         return Ok(None);
     }
     let text = std::fs::read_to_string(&manifest)
-        .with_context(|| format!("reading {}", manifest.display()))?;
+        .with_context(|| format!("read {}", manifest.display()))?;
     let json: Value =
-        serde_json::from_str(&text).with_context(|| manifest.display().to_string())?;
+        serde_json::from_str(&text).with_context(|| format!("parse {}", manifest.display()))?;
     Ok(json
         .get("style")
         .and_then(Value::as_str)
@@ -145,8 +145,8 @@ fn package(dir: &Path, sub: &str) -> Result<PathBuf> {
     let manifest = dir.join("package.json");
     let json: Value = if manifest.is_file() {
         let text = std::fs::read_to_string(&manifest)
-            .with_context(|| format!("reading {}", manifest.display()))?;
-        serde_json::from_str(&text).with_context(|| manifest.display().to_string())?
+            .with_context(|| format!("read {}", manifest.display()))?;
+        serde_json::from_str(&text).with_context(|| format!("parse {}", manifest.display()))?
     } else {
         Value::Null
     };

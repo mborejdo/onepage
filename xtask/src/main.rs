@@ -321,7 +321,10 @@ fn font(m: &Manifest, font: &Font) -> Result<Files> {
             format!("packages/panelkit/fonts/{}.woff2", font.name),
             fs::read(&woff2)?,
         ),
-        (format!("packages/panelkit/LICENSE-{}", font.name), license),
+        (
+            format!("packages/panelkit/fonts/LICENSE-{}", font.name),
+            license,
+        ),
     ]))
 }
 

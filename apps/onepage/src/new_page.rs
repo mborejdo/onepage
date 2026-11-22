@@ -53,13 +53,15 @@ pub fn run(dir: &Path) -> Result<String> {
         .file_name()
         .map_or_else(|| "page".into(), |n| n.to_string_lossy());
     std::fs::create_dir_all(dir.join("src"))
-        .with_context(|| format!("creating {}", dir.display()))?;
+        .with_context(|| format!("create {}", dir.display()))?;
     for (file, text) in [
         ("onepage.toml", CONFIG),
         ("index.html", SHELL),
         ("src/app.tsx", APP),
     ] {
-        std::fs::write(dir.join(file), text.replace("@TITLE@", &title))?;
+        let path = dir.join(file);
+        std::fs::write(&path, text.replace("@TITLE@", &title))
+            .with_context(|| format!("write {}", path.display()))?;
     }
     Ok(format!(
         "made {0}; next: onepage dev {0} --port 8000",

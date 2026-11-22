@@ -17,7 +17,7 @@ use pagekit::lint::Report;
 use crate::config::Config;
 
 /// The lines to print for a failed command, and its exit code: 1 for a mistake in the page
-/// (`error: file:line: message`, one line each), 2 for anything else (`onepage: reason`).
+/// (`file:line: error: message`, one line each), 2 for anything else (`onepage: reason`).
 #[must_use]
 pub fn report(e: &anyhow::Error) -> (String, u8) {
     if let Some(lint) = e.chain().find_map(|e| e.downcast_ref::<Report>()) {
@@ -27,7 +27,15 @@ pub fn report(e: &anyhow::Error) -> (String, u8) {
         .find_map(|e| e.downcast_ref::<pagekit::Finding>())
         .map_or_else(
             || (format!("onepage: {e:#}"), 2),
-            |finding| (format!("error: {finding}"), 1),
+            |finding| {
+                let line = format!(
+                    "{}:{}: error: {}",
+                    finding.file.display(),
+                    finding.line,
+                    finding.message
+                );
+                (line, 1)
+            },
         )
 }
 
@@ -41,7 +49,7 @@ pub fn lint(dir: &Path, fix: bool) -> Result<Report> {
 /// Build the page in `dir` and write it to `out` (else the config's `out`), with the
 /// `[wasm]` files next to it. The page's sources are fixed and formatted first, so what is
 /// bundled is what is on disk; a lint error fails the build with its [`Report`]. Returns the
-/// path written and the lint's report (its notices and the files it formatted).
+/// path written and the lint's report (its notes and the files it formatted).
 pub fn build(dir: &Path, out: Option<&Path>, minify: bool) -> Result<(PathBuf, Report)> {
     let config = Config::load(dir)?;
     config.check_theme(dir)?;
@@ -52,12 +60,12 @@ pub fn build(dir: &Path, out: Option<&Path>, minify: bool) -> Result<(PathBuf, R
     let built = pagekit::build(&config.page(dir, minify))?;
     let out = out.map_or_else(|| dir.join(&config.out), Path::to_path_buf);
     let folder = out.parent().unwrap_or_else(|| Path::new("."));
-    std::fs::create_dir_all(folder).with_context(|| format!("creating {}", folder.display()))?;
-    std::fs::write(&out, built.html).with_context(|| format!("writing {}", out.display()))?;
+    std::fs::create_dir_all(folder).with_context(|| format!("create {}", folder.display()))?;
+    std::fs::write(&out, built.html).with_context(|| format!("write {}", out.display()))?;
     for file in built.files {
         let name = file.file_name().context("a [wasm] file names no file")?;
         std::fs::copy(&file, folder.join(name))
-            .with_context(|| format!("[wasm] files: copying {}", file.display()))?;
+            .with_context(|| format!("[wasm] files: copy {}", file.display()))?;
     }
     Ok((out, lint))
 }

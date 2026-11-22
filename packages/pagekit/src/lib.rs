@@ -194,7 +194,7 @@ impl std::error::Error for Finding {}
 pub fn build(page: &Page) -> Result<Built> {
     let read = |p: &Path| {
         std::fs::read_to_string(page.root.join(p))
-            .with_context(|| format!("reading {}", page.root.join(p).display()))
+            .with_context(|| format!("read {}", page.root.join(p).display()))
     };
     let shell = read(&page.shell)?;
     for slot in [CSS_SLOT, JS_SLOT] {
@@ -234,12 +234,12 @@ pub fn build(page: &Page) -> Result<Built> {
         for module in used {
             sources.push(
                 std::fs::read_to_string(module)
-                    .with_context(|| format!("reading {}", module.display()))?,
+                    .with_context(|| format!("read {}", module.display()))?,
             );
         }
         if let Some(sheet) = packages::style(&kit)? {
             let text = std::fs::read_to_string(&sheet)
-                .with_context(|| format!("reading {}", sheet.display()))?;
+                .with_context(|| format!("read {}", sheet.display()))?;
             base.push(css::inline_fonts(&text, sheet.parent().unwrap_or(&kit))?);
         }
     }

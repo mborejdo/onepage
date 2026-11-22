@@ -24,9 +24,7 @@ pub fn files(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut out = vec![];
     let mut stack = vec![dir.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        for entry in
-            std::fs::read_dir(&dir).with_context(|| format!("reading {}", dir.display()))?
-        {
+        for entry in std::fs::read_dir(&dir).with_context(|| format!("read {}", dir.display()))? {
             let path = entry?.path();
             if path.is_dir() {
                 stack.push(path);
@@ -43,7 +41,7 @@ pub fn files(dir: &Path) -> Result<Vec<PathBuf>> {
 pub fn sources(dir: &Path) -> Result<Vec<String>> {
     files(dir)?
         .iter()
-        .map(|p| std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display())))
+        .map(|p| std::fs::read_to_string(p).with_context(|| format!("read {}", p.display())))
         .collect()
 }
 
@@ -114,7 +112,7 @@ pub fn inline_fonts(sheet: &str, dir: &Path) -> Result<String> {
             continue;
         }
         let path = dir.join(target);
-        let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+        let bytes = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
         let data = base64::engine::general_purpose::STANDARD.encode(bytes);
         let _ = write!(out, "\"data:{mime};base64,{data}\"");
         rest = &rest[close..];

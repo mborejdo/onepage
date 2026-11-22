@@ -75,10 +75,10 @@ pub struct Finding {
 
 impl fmt::Display for Finding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let level = if self.notice { "notice" } else { "error" };
+        let level = if self.notice { "note" } else { "error" };
         write!(
             f,
-            "{level}: {}:{}: {}: {}",
+            "{}:{}: {level}: {}: {}",
             self.file.display(),
             self.line,
             self.rule,
@@ -165,7 +165,7 @@ pub fn page(page: &Page, rules: &Rules, fix: bool) -> Result<Report> {
         .into_par_iter()
         .map(|(path, own)| {
             let text = std::fs::read_to_string(&path)
-                .with_context(|| format!("reading {}", path.display()))?;
+                .with_context(|| format!("read {}", path.display()))?;
             let file = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
             let mut linted = if own {
                 lint_text(&file, &text, fix, true, rules)
@@ -178,7 +178,7 @@ pub fn page(page: &Page, rules: &Rules, fix: bool) -> Result<Report> {
             if let Some(out) = &linted.text {
                 if fix {
                     std::fs::write(&path, out)
-                        .with_context(|| format!("writing {}", path.display()))?;
+                        .with_context(|| format!("write {}", path.display()))?;
                 } else {
                     linted.findings.push(Finding {
                         file: file.clone(),
@@ -521,7 +521,7 @@ impl Rules {
             }
             if !known.iter().any(|k| k.lint && k.group == group) {
                 bail!(
-                    "groups.{group}: Biome has no such group - one of {}",
+                    "groups.{group}: Biome has no such group; one of {}",
                     groups().join(", ")
                 );
             }
@@ -548,7 +548,7 @@ impl Rules {
                     bail!("rules.\"{key}\": Biome has no rule `{name}` in `{group}`");
                 }
                 bail!(
-                    "rules.\"{key}\": Biome has no group `{group}` - one of {}",
+                    "rules.\"{key}\": Biome has no group `{group}`; one of {}",
                     groups().join(", ")
                 );
             };
@@ -726,7 +726,7 @@ mod tests {
         assert_eq!(
             finding.to_string(),
             format!(
-                "error: src/app.tsx:3: lint/suspicious/noDebugger: {}",
+                "src/app.tsx:3: error: lint/suspicious/noDebugger: {}",
                 finding.message
             )
         );

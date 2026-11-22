@@ -3,9 +3,10 @@
    (tokens.toml); the colours follow the scheme by themselves. */
 
 /* The token faces, embedded (onepage inlines the files): a page looks the same where Inter and
-   Fira Code are not installed. Latin subsets of the variable fonts, SIL OFL 1.1 (LICENSE-inter,
-   LICENSE-fira-code). Inter keeps its optical size axis, so Inter Display is in the same file;
-   neither file has contextual alternates or ligatures, so `->`, `=>` and `!=` stay as typed. */
+   Fira Code are not installed. Latin subsets of the variable fonts, SIL OFL 1.1
+   (fonts/LICENSE-inter, fonts/LICENSE-fira-code). Inter keeps its optical size axis, so Inter
+   Display is in the same file; neither file has contextual alternates or ligatures, so `->`,
+   `=>` and `!=` stay as typed. */
 @font-face {
   font-family: "Inter";
   src: url("fonts/inter.woff2") format("woff2");

@@ -226,8 +226,8 @@ impl Tokens {
     /// Read and check a token file.
     pub fn load(path: &Path) -> Result<Self> {
         let text =
-            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        Self::parse(&text).with_context(|| path.display().to_string())
+            std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+        Self::parse(&text).with_context(|| format!("parse {}", path.display()))
     }
 
     /// Parse and check a token file's text: every colour `#rrggbb`, both series the same length.
@@ -438,7 +438,7 @@ fn scheme(palette: &Palette, series: &[String]) -> String {
 pub fn rgb(hex: &str) -> Result<[u8; 3]> {
     let digits = hex.strip_prefix('#').unwrap_or(hex);
     if digits.len() != 6 || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
-        bail!("`{hex}` is not a #rrggbb colour");
+        bail!("expected a #rrggbb colour, got \"{hex}\"");
     }
     let channel = |i: usize| u8::from_str_radix(&digits[i..i + 2], 16);
     Ok([channel(0)?, channel(2)?, channel(4)?])

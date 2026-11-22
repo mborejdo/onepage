@@ -49,7 +49,7 @@ render(<App />, document.getElementById("root") as HTMLElement);
 A mistake that would build into a blank page fails the build, one line per finding:
 
 ```text
-error: src/app.tsx:3: uses JSX but does not import `h`; add `import { h } from "preact";`
+src/app.tsx:3: error: uses JSX but does not import `h`; add `import { h } from "preact";`
 ```
 
 | check | why |
@@ -69,10 +69,12 @@ not `[wasm] glue`). Rules: Biome's `recommended`, no `nursery`, `react` and `tes
 `project` off, classic JSX under Preact's `h` and `Fragment`.
 
 ```text
-error: src/app.tsx:10: lint/a11y/useButtonType: Provide an explicit type prop for the button element.
+src/app.tsx:10: error: lint/a11y/useButtonType: Provide an explicit type prop for the button element.
+1 errors, 0 warnings
 ```
 
-- `error` exits 1, `notice` only prints. `useExhaustiveDependencies` and `useJsxKeyInIterable`
+- The report goes to stdout and ends with the counts. `error` exits 1, `notice` only prints (as
+  `note:`). `useExhaustiveDependencies` and `useJsxKeyInIterable`
   are notices by default; a file the formatter would change is a `lint/format` error.
 - `[imports]` packages are linted read-only, as notices: fix them where they live.
 - `--fix` applies the safe fixes (plus dropping unused imports), then formats: two spaces, 100

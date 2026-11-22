@@ -76,17 +76,17 @@ pub struct Bundled {
 /// Bundle `entry` (and everything it imports from inside `root`, the import map and the
 /// vendor folder) into one script. Runs on a thread with a large stack: swc recurses per tree
 /// level.
-pub fn bundle(root: &Path, entry: &Path, opts: &Options<'_>) -> Result<Bundled> {
+pub fn bundle(root: &Path, entry: &Path, options: &Options<'_>) -> Result<Bundled> {
     std::thread::scope(|s| {
         std::thread::Builder::new()
             .stack_size(64 << 20)
-            .spawn_scoped(s, || bundle_here(root, entry, opts))?
+            .spawn_scoped(s, || bundle_here(root, entry, options))?
             .join()
             .map_err(|_| anyhow!("the bundler panicked"))?
     })
 }
 
-fn bundle_here(root: &Path, entry: &Path, opts: &Options<'_>) -> Result<Bundled> {
+fn bundle_here(root: &Path, entry: &Path, options: &Options<'_>) -> Result<Bundled> {
     let root = root
         .canonicalize()
         .with_context(|| format!("{}", root.display()))?;
@@ -97,7 +97,7 @@ fn bundle_here(root: &Path, entry: &Path, opts: &Options<'_>) -> Result<Bundled>
         module: ModuleType::Es,
         ..Default::default()
     };
-    let vendor = opts
+    let vendor = options
         .imports
         .vendor
         .as_ref()
@@ -106,16 +106,16 @@ fn bundle_here(root: &Path, entry: &Path, opts: &Options<'_>) -> Result<Bundled>
         cm: cm.clone(),
         root: root.clone(),
         vendor,
-        opts,
+        options,
         modules: Rc::default(),
     };
     let mut roots = vec![root.clone()];
-    roots.extend(opts.imports.roots());
+    roots.extend(options.imports.roots());
     let resolver = Resolver {
         inner: NodeModulesResolver::new(TargetEnv::Browser, HashMap::default(), true),
         root: root.clone(),
         roots,
-        imports: opts.imports,
+        imports: options.imports,
     };
     let loader_modules = loader.modules.clone();
     let mut bundler = Bundler::new(
@@ -134,11 +134,11 @@ fn bundle_here(root: &Path, entry: &Path, opts: &Options<'_>) -> Result<Bundled>
         .module;
     drop(bundler);
     let modules = loader_modules.take();
-    externalize(&mut module, opts.host)?;
-    if opts.minify {
+    externalize(&mut module, options.host)?;
+    if options.minify {
         module = GLOBALS.set(&globals, || minify(&cm, module));
     }
-    let script = format!("(function(){{{}}})();", emit(&cm, &module, opts.minify)?);
+    let script = format!("(function(){{{}}})();", emit(&cm, &module, options.minify)?);
     // A browser drops a script it cannot parse, so check it parses as a classic one.
     let fm = cm.new_source_file(FileName::Anon.into(), script.clone());
     let mut errors = vec![];
@@ -206,13 +206,14 @@ impl Resolve for Resolver<'_> {
     }
 }
 
-/// Parses each module, runs the checks, and compiles TypeScript and JSX away.
+/// The module loader: it parses each module, runs the checks and compiles TypeScript and JSX
+/// away.
 struct Loader<'a> {
     cm: Lrc<SourceMap>,
     root: PathBuf,
     /// Vendored code is third-party JavaScript: parsed and linked, not checked.
     vendor: Option<PathBuf>,
-    opts: &'a Options<'a>,
+    options: &'a Options<'a>,
     /// Every file loaded, for the class scan.
     modules: Rc<RefCell<Vec<PathBuf>>>,
 }
@@ -227,10 +228,10 @@ impl Loader<'_> {
 impl Load for Loader<'_> {
     fn load(&self, file: &FileName) -> Result<ModuleData> {
         let FileName::Real(path) = file else {
-            bail!("cannot load {file:?}");
+            bail!("no loader for {file}");
         };
         let source =
-            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+            std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
         let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
         self.modules.borrow_mut().push(canonical.clone());
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
@@ -256,7 +257,7 @@ impl Load for Loader<'_> {
             },
             (Ok(m), None) => m,
         };
-        let glue = self.opts.glue.as_ref().is_some_and(|g| {
+        let glue = self.options.glue.as_ref().is_some_and(|g| {
             let g = self.root.join(g);
             canonical.starts_with(g.canonicalize().unwrap_or(g))
         });
@@ -288,7 +289,9 @@ impl Load for Loader<'_> {
             }
             let module = program.apply(strip(unresolved, top_level)).expect_module();
             let found = checked
-                .then(|| check::undeclared(&module, unresolved, self.opts.wasm, self.opts.globals))
+                .then(|| {
+                    check::undeclared(&module, unresolved, self.options.wasm, self.options.globals)
+                })
                 .flatten();
             (module, found)
         });

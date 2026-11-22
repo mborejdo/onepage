@@ -40,8 +40,8 @@ icons = [
 ]
 
 # Each font: `wght` limited, then subset to `unicodes` and `features`, as woff2, into
-# panelkit/fonts/<name>.woff2 and panelkit/LICENSE-<name>. `epoch` is SOURCE_DATE_EPOCH for
-# the head.modified the instancer stamps.
+# panelkit/fonts/<name>.woff2 and panelkit/fonts/LICENSE-<name>. `epoch` is SOURCE_DATE_EPOCH
+# for the head.modified the instancer stamps.
 [fonts]
 wght = "300:700"
 unicodes = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2190-2195,U+2212,U+2215,U+2248,U+2260,U+2264-2265,U+FEFF,U+FFFD"
@@ -72,9 +72,9 @@ epoch = 1795257888
 "packages/pagekit/assets/LICENSE-preact" = "1f256d5e96856ab9c707b6b5f6fa22511fbcdc027e7ea6c09105d70d23a1f2db"
 "packages/pagekit/assets/hooks.umd.js" = "bfc448a2a5480d3039af4a1ec75cde2320d2cab16191490f48a221478d71e7fc"
 "packages/pagekit/assets/preact.umd.js" = "34bfc5a48adf02706e03e88412ed77f3ae56402bd5788cdf4a4b562d683821f3"
-"packages/panelkit/LICENSE-fira-code" = "1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c"
-"packages/panelkit/LICENSE-inter" = "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
 "packages/panelkit/LICENSE-tabler" = "b740a1d46122672da62833e97f7e7c8a13fa85cbc7445b584b297cc00dde93db"
+"packages/panelkit/fonts/LICENSE-fira-code" = "1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c"
+"packages/panelkit/fonts/LICENSE-inter" = "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
 "packages/panelkit/fonts/fira-code.woff2" = "fb61d6525d2c3c6fdd3fd3ab1caf02314ff2ffa88e294aa196c3435dfeacda6d"
 "packages/panelkit/fonts/inter.woff2" = "bbade289aaa57ed7fb2d2df87852b532b6dfe67d072c3a4293919b4a01de60db"
 "packages/panelkit/src/glyphs.ts" = "13a13f063732f7c7a9b61981a91f18cbcb97aa1933cb888b8e8d83e74d9a9981"
