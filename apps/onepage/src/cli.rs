@@ -19,7 +19,7 @@ Examples:
 
 Exit codes:
   0  done
-  1  the page has a mistake (one `file:line: error: message` line each)
+  1  the page has a mistake (one `file:line: error: ...` line each)
   2  onepage could not do what you asked (the reason on stderr)";
 
 /// The end of `onepage build --help`.

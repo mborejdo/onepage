@@ -75,8 +75,8 @@ src/app.tsx:10: error: lint/a11y/useButtonType: Provide an explicit type prop fo
 
 - The report goes to stdout and ends with the counts. `error` exits 1, `notice` only prints (as
   `note:`). `useExhaustiveDependencies` and `useJsxKeyInIterable`
-  are notices by default; a file the formatter would change is a `lint/format` error.
-- `[imports]` packages are linted read-only, as notices: fix them where they live.
+  are notes by default; a file the formatter would change is a `lint/format` error.
+- `[imports]` packages are linted read-only, as notes: fix them where they live.
 - `--fix` applies the safe fixes (plus dropping unused imports), then formats: two spaces, 100
   columns, double quotes, trailing commas, semicolons. Twice is once.
 - `build` and `dev` fix and format first, so what's bundled is what's on disk. A lint error

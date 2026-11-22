@@ -89,7 +89,7 @@ pub fn bundle(root: &Path, entry: &Path, options: &Options<'_>) -> Result<Bundle
 fn bundle_here(root: &Path, entry: &Path, options: &Options<'_>) -> Result<Bundled> {
     let root = root
         .canonicalize()
-        .with_context(|| format!("{}", root.display()))?;
+        .with_context(|| format!("resolve {}", root.display()))?;
     let cm: Lrc<SourceMap> = Lrc::default();
     let globals = Globals::new();
     let config = Config {

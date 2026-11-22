@@ -3,9 +3,9 @@
 //! The page's own sources (the `.ts` and `.tsx` files in the entry's folder, `vendor` and the
 //! `[wasm] glue` left out) are linted and, with `fix`, safe-fixed and formatted in place. The
 //! mapped packages of `[imports]` are linted read-only under the preset, their findings
-//! notices: a fix goes where the package lives. The preset is Biome's `recommended` (no
+//! notes: a fix goes where the package lives. The preset is Biome's `recommended` (no
 //! `nursery`, see `DOMAINS`) with the classic JSX runtime under Preact's `h` and `Fragment`;
-//! `[lint]` moves rules on, off or to notices ([`Rules`]). Unsafe fixes are never applied,
+//! `[lint]` moves rules on, off or to notes (level `notice`) ([`Rules`]). Unsafe fixes are never applied,
 //! except `SAFE_HERE`.
 
 use std::collections::BTreeMap;
@@ -69,7 +69,7 @@ pub struct Finding {
     pub rule: String,
     /// The diagnostic's one-line description.
     pub message: String,
-    /// Printed, never failing: a notice by level, or a mapped package's.
+    /// Printed as `note:`, never failing: a `notice` by level, or a mapped package's.
     pub notice: bool,
 }
 
@@ -475,7 +475,7 @@ fn first_change(a: &str, b: &str) -> usize {
 /// graph a lone file does not have.
 const DOMAINS: &[RuleDomain] = &[RuleDomain::React, RuleDomain::Test];
 
-/// Recommended rules reported as notices in the preset, never failing.
+/// Recommended rules reported as notes in the preset, never failing.
 ///
 /// - `useExhaustiveDependencies`: an extra dependency is often deliberate, to re-run an
 ///   effect, and the rule cannot tell that from a mistake.
@@ -491,7 +491,7 @@ fn of_finding(rule: &str) -> Option<(&str, &str)> {
     rule.strip_prefix("lint/").and_then(|r| r.split_once('/'))
 }
 
-/// The rules a lint runs and which of them are notices: the preset, or a page's `[lint]` on
+/// The rules a lint runs and which of them are notes: the preset, or a page's `[lint]` on
 /// top of it. `Default` is the preset, exactly.
 #[derive(Debug, Clone, Default)]
 pub struct Rules {
