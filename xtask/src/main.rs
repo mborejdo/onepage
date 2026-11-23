@@ -110,7 +110,12 @@ fn root() -> PathBuf {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    Sha256::digest(bytes)
+        .iter()
+        .flat_map(|b| [HEX[usize::from(b >> 4)], HEX[usize::from(b & 0xf)]])
+        .map(char::from)
+        .collect()
 }
 
 /// `url` through curl, refused unless it hashes to `sha256`.
@@ -416,5 +421,16 @@ fn main() -> ExitCode {
             eprintln!("xtask: {e:#}");
             ExitCode::FAILURE
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn sha256_is_lowercase_hex() {
+        assert_eq!(
+            super::sha256(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 }
