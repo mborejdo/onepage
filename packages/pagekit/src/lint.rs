@@ -16,7 +16,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use oxc_allocator::Allocator;
 use oxc_diagnostics::Severity;
 use oxc_formatter::{JsFormatOptions, QuoteStyle, Semicolons, TrailingCommas};
@@ -31,7 +31,7 @@ use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::Page;
+use crate::{Page, line_at};
 
 /// The `[lint]` table: rules moved by Oxlint category and by name. A rule's level is the
 /// preset's, then its category's here, then its own here.
@@ -134,14 +134,11 @@ impl Report {
     }
 }
 
-/// One line per finding, then `formatted <file>` per rewritten file.
+/// One line per finding.
 impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for finding in &self.findings {
             writeln!(f, "{finding}")?;
-        }
-        for file in &self.formatted {
-            writeln!(f, "formatted {}", file.display())?;
         }
         Ok(())
     }
@@ -268,12 +265,12 @@ struct Engine {
 
 impl Engine {
     fn new(rules: &Rules) -> Result<Self> {
-        let oxlintrc: Oxlintrc = serde_json::from_value(rules.oxlintrc())
-            .map_err(|e| anyhow!("the linter's configuration: {e}"))?;
+        let oxlintrc: Oxlintrc =
+            serde_json::from_value(rules.oxlintrc()).context("parse the linter's configuration")?;
         let mut store = ExternalPluginStore::default();
         let config = ConfigStoreBuilder::from_oxlintrc(true, oxlintrc, None, &mut store, None)
             .and_then(|b| b.build(&mut store))
-            .map_err(|e| anyhow!("the linter's configuration: {e}"))?;
+            .context("build the linter's configuration")?;
         let linter = Linter::new(
             LintOptions::default(),
             ConfigStore::new(config, rustc_hash::FxHashMap::default(), store),
@@ -456,12 +453,6 @@ fn format(text: &str, source: SourceType) -> Result<String, String> {
 /// A description on one line: some list their suggestions on lines of their own.
 fn one_line(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-/// The 1-based line of a byte offset.
-fn line_at(text: &str, at: impl TryInto<usize>) -> usize {
-    let at = at.try_into().unwrap_or(usize::MAX).min(text.len());
-    text.get(..at).map_or(0, |t| t.matches('\n').count()) + 1
 }
 
 /// The 1-based line where `a` and `b` first differ.

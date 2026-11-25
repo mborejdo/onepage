@@ -49,6 +49,7 @@ const LINT_FOOTER: &str = "\
 Examples:
   onepage lint hello                one `file:line: error: rule: message` line per finding, on stdout
   onepage lint hello --fix          the safe fixes and the formatter, written back
+                                    (a `<path>  <N> KB` line per file rewritten)
 
 The rules are onepage's preset of Oxlint rules. A `[lint]` table in onepage.toml moves them by
 Oxlint category and by the name a finding gives a rule, to error, notice or off:

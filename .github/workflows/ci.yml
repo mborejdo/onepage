@@ -35,11 +35,11 @@ jobs:
       - name: clippy
         run: |
           cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-          cargo clippy --all-targets --no-default-features --locked -- -D warnings
+          cargo clippy --workspace --all-targets --no-default-features --locked -- -D warnings
       - name: test
         run: |
           cargo test --workspace --all-features --locked
-          cargo test --no-default-features --locked
+          cargo test --workspace --no-default-features --locked
       - name: doc
         run: cargo doc --workspace --no-deps --all-features --locked
         env:

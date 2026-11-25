@@ -26,13 +26,18 @@ fn run(cli: Cli) -> anyhow::Result<u8> {
         Command::Build { dir, out } => {
             let (out, lint) = onepage::build(&dir, out.as_deref(), true)?;
             eprint!("{lint}");
-            let size = std::fs::metadata(&out).map_or(0, |m| m.len());
-            println!("{}  {} KB", out.display(), size / 1024);
+            for file in &lint.formatted {
+                println!("{}", onepage::written(&dir.join(file)));
+            }
+            println!("{}", onepage::written(&out));
         },
         Command::Dev { dir, port } => onepage::dev::run(&dir, port)?,
         Command::Lint { dir, fix } => {
             let lint = onepage::lint(&dir, fix)?;
             print!("{lint}");
+            for file in &lint.formatted {
+                println!("{}", onepage::written(&dir.join(file)));
+            }
             println!("{} errors, 0 warnings", lint.errors());
             return Ok(u8::from(lint.errors() > 0));
         },

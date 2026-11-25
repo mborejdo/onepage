@@ -232,7 +232,10 @@ impl Tokens {
 
     /// Parse and check a token file's text: every colour `#rrggbb`, both series the same length.
     pub fn parse(text: &str) -> Result<Self> {
-        let tokens: Self = toml::from_str(text)?;
+        let tokens: Self = toml::from_str(text).map_err(|e| {
+            let at = crate::Finding::of_toml("", text, &e);
+            anyhow::anyhow!("line {}: {}", at.line, at.message)
+        })?;
         for (scheme, palette) in [("light", &tokens.light), ("dark", &tokens.dark)] {
             for (name, value) in palette.named() {
                 rgb(value).with_context(|| format!("[{scheme}] {name}"))?;

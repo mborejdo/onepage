@@ -144,8 +144,29 @@ pub fn page(page: &Page, backlog: Option<&Backlog>) -> Result<Report> {
         .filter_map(|d| finding(&root, &own, &d))
         .collect::<Vec<_>>();
     findings.sort_by(|a, b| (&a.file, a.line).cmp(&(&b.file, b.line)));
-    Ok(ratchet(findings, backlog))
+    let mut report = ratchet(findings, backlog);
+    // A note to lower a count points at the count.
+    let config = std::fs::read_to_string(page.root.join(CONFIG)).unwrap_or_default();
+    for f in report
+        .findings
+        .iter_mut()
+        .filter(|f| f.file == Path::new(CONFIG))
+    {
+        f.line = config
+            .lines()
+            .position(|l| {
+                let l = l.trim_start();
+                l.strip_prefix(&f.rule)
+                    .or_else(|| l.strip_prefix(&format!("\"{}\"", f.rule)))
+                    .is_some_and(|rest| rest.trim_start().starts_with('='))
+            })
+            .map_or(0, |i| i + 1);
+    }
+    Ok(report)
 }
+
+/// The page's config file, where `[types]` lives.
+const CONFIG: &str = "onepage.toml";
 
 /// tsrs's engine over `own`, with `overrides` as files in memory: its diagnostics.
 fn run(
@@ -166,7 +187,8 @@ fn run(
         "report_semantic": true,
     });
     let payload = tsrs_lint::payload::deserialize_payload(&payload.to_string())
-        .map_err(|e| anyhow::anyhow!("tsrs: {e}"))?;
+        .map_err(anyhow::Error::msg)
+        .context("tsrs: read the payload")?;
     let mut out = Vec::new();
     tsrs_lint::engine::run(
         &payload,
@@ -174,7 +196,8 @@ fn run(
         &root.to_string_lossy(),
         &mut out,
     )
-    .map_err(|e| anyhow::anyhow!("tsrs: {e}"))?;
+    .map_err(anyhow::Error::msg)
+    .context("tsrs: run the checker")?;
     let diagnostics = frames(&out)?;
     // The tsconfig is onepage's: a mistake in it is onepage's, and the program never ran.
     let tsconfig = root.join("tsconfig.json");
@@ -302,9 +325,7 @@ fn finding(root: &Path, own: &BTreeSet<PathBuf>, d: &Value) -> Option<Finding> {
         .and_then(Value::as_u64)
         .and_then(|p| usize::try_from(p).ok());
     let line = at.map_or(0, |at| {
-        let text = std::fs::read_to_string(&path).unwrap_or_default();
-        let at = at.min(text.len());
-        text.get(..at).map_or(0, |t| t.matches('\n').count()) + 1
+        crate::line_at(&std::fs::read_to_string(&path).unwrap_or_default(), at)
     });
     Some(Finding {
         file: path.strip_prefix(root).unwrap_or(&path).to_path_buf(),
@@ -329,10 +350,10 @@ fn ratchet(mut findings: Vec<Finding>, backlog: Option<&Backlog>) -> Report {
         let found = counts.get(code).copied().unwrap_or(0);
         if found < allowed {
             findings.push(Finding {
-                file: PathBuf::from("onepage.toml"),
+                file: PathBuf::from(CONFIG),
                 line: 0,
                 rule: code.clone(),
-                message: format!("[types] allows {allowed}, {found} are left: lower it to {found}"),
+                message: format!("[types] allows {allowed}, {found} are left; lower it to {found}"),
                 notice: true,
             });
         }

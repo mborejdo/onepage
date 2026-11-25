@@ -21,6 +21,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   preset's plugins. `rules` names a rule as a finding does and may give its options as Oxlint
   takes them (`"eslint/max-params" = ["error", { max = 4 }]`). Any other name, a `nursery`
   category or a `groups` key is a `onepage.toml:line: error: [lint] ...` finding (exit 1).
+- A malformed or unknown key in `onepage.toml` is one `onepage.toml:line: error: message` line
+  (exit 1), not TOML's multi-line report; a token file's names its line. A failed bundle is one
+  line (rolldown's first diagnostic).
+- `lint --fix`, `build` and `dev` print one `<path>  <N> KB` line per file they write, the
+  formatted sources included (`formatted <file>` and `built <file>` are gone).
+- A `[types]` note to lower a count points at the count's line.
 - MSRV 1.100 (tsrs, on by default); `--no-default-features` builds without type checks on 1.97.
 - `homepage` dropped from the manifests: it repeated `repository` (Cargo 1.100 warns).
 - `pagekit::lint::lint_text` returns a `Result` (the linter's configuration can fail).

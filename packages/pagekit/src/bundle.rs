@@ -23,7 +23,7 @@ use rolldown::{
 };
 
 use crate::packages::{self, Imports};
-use crate::{Finding, check};
+use crate::{Finding, check, line_at};
 
 /// The modules read from globals instead of being bundled: specifier and global name. They win
 /// over the import map and the vendor folder, so the page and every package it imports share
@@ -134,11 +134,11 @@ pub fn bundle(root: &Path, entry: &Path, options: &Options<'_>) -> Result<Bundle
         return Err(finding.into());
     }
     let output = output.map_err(|errors| {
-        let lines: Vec<String> = errors
+        let diagnostics: Vec<String> = errors
             .iter()
             .map(|e| e.to_diagnostic().to_string())
             .collect();
-        anyhow!("{}", lines.join("\n"))
+        one_error(&diagnostics)
     })?;
     let mut chunks = output.assets.into_iter().filter_map(|o| match o {
         rolldown_common::Output::Chunk(c) => Some(c),
@@ -164,17 +164,27 @@ pub fn bundle(root: &Path, entry: &Path, options: &Options<'_>) -> Result<Bundle
     let parsed = Parser::new(&allocator, &script, SourceType::cjs()).parse();
     if let Some(e) = parsed.diagnostics.first() {
         bail!(
-            "the bundle is not a valid classic script ({}); a top-level `await` is the usual cause",
+            "the bundle is not a valid classic script: {}; a top-level `await` is the usual cause",
             e.message
         );
     }
     Ok(Bundled { script, modules })
 }
 
-/// The 1-based line of a byte offset.
-fn line_at(text: &str, at: u32) -> usize {
-    let at = usize::try_from(at).unwrap_or(usize::MAX).min(text.len());
-    text.get(..at).map_or(0, |t| t.matches('\n').count()) + 1
+/// rolldown's errors as one line: its diagnostics are multi-line, with a code frame, so the
+/// first line of the first one is the reason.
+fn one_error(diagnostics: &[String]) -> anyhow::Error {
+    let first = diagnostics
+        .first()
+        .map_or("", String::as_str)
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or_default()
+        .trim();
+    match diagnostics.len() {
+        0 | 1 => anyhow!("rolldown: {first}"),
+        n => anyhow!("rolldown: {first}; and {} more", n - 1),
+    }
 }
 
 /// The plugin that makes the graph a page's: bare imports through the import map and the

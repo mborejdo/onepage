@@ -43,7 +43,10 @@ pub fn run(dir: &Path, port: Option<u16>) -> Result<()> {
             match crate::build(dir, None, false) {
                 Ok((path, lint)) => {
                     eprint!("{lint}");
-                    println!("built {}", path.display());
+                    for file in &lint.formatted {
+                        println!("{}", crate::written(&dir.join(file)));
+                    }
+                    println!("{}", crate::written(&path));
                 },
                 Err(e) => eprintln!("{}", crate::report(&e).0),
             }

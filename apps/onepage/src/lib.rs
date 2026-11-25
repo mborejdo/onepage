@@ -39,6 +39,13 @@ pub fn report(e: &anyhow::Error) -> (String, u8) {
         )
 }
 
+/// The line a written file gets on stdout: `<path>  <N> KB`.
+#[must_use]
+pub fn written(path: &Path) -> String {
+    let size = std::fs::metadata(path).map_or(0, |m| m.len());
+    format!("{}  {} KB", path.display(), size / 1024)
+}
+
 /// Oxc's linter and formatter over the page in `dir` ([`pagekit::lint::page`]): read-only, a file the formatter
 /// would change is a finding; with `fix`, the safe fixes and the formatter are written back.
 pub fn lint(dir: &Path, fix: bool) -> Result<Report> {

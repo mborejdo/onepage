@@ -170,6 +170,18 @@ impl Finding {
         }
     }
 
+    /// A finding in `file` for a TOML error in its `text`: at the error's line, on one line.
+    #[must_use]
+    pub fn of_toml(file: impl AsRef<Path>, text: &str, error: &toml::de::Error) -> Self {
+        let line = error.span().map_or(0, |span| line_at(text, span.start));
+        let message = error
+            .message()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        Self::new(file, line, message)
+    }
+
     /// A finding at the first line of `path` that quotes `needle`.
     #[must_use]
     pub fn at_text(root: &Path, path: &Path, needle: &str, message: String) -> Self {
@@ -191,6 +203,12 @@ impl fmt::Display for Finding {
 }
 
 impl std::error::Error for Finding {}
+
+/// The 1-based line of a byte offset in `text`.
+pub(crate) fn line_at(text: &str, at: impl TryInto<usize>) -> usize {
+    let at = at.try_into().unwrap_or(usize::MAX).min(text.len());
+    text.get(..at).map_or(0, |t| t.matches('\n').count()) + 1
+}
 
 /// Build `page` into one HTML file.
 pub fn build(page: &Page) -> Result<Built> {

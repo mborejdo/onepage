@@ -354,6 +354,21 @@ fn a_low_contrast_theme_fails_the_build_at_its_line() {
 }
 
 #[test]
+fn an_unknown_config_key_fails_at_its_line() {
+    let dir = page(
+        "unknown-key",
+        &[("onepage.toml", "title = \"x\"\nnmae = \"y\"\n")],
+    );
+    let (line, code) = onepage::report(&onepage::lint(&dir, false).unwrap_err());
+    assert_eq!(code, 1);
+    assert!(
+        line.starts_with("onepage.toml:2: error: unknown field `nmae`, expected one of "),
+        "{line}"
+    );
+    assert!(!line.contains('\n'), "{line}");
+}
+
+#[test]
 fn a_lint_name_oxlint_does_not_have_fails_at_its_line() {
     let dir = page(
         "lint-name",
