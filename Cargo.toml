@@ -1,5 +1,5 @@
 # onepage: a Preact TSX page in, one self-contained HTML file out. rolldown bundles the module
-# graph, encre-css writes the utility sheet, Biome lints and formats the source, and a strict
+# graph, encre-css writes the utility sheet, Oxc lints and formats the source, and a strict
 # Content-Security-Policy pins the one inline script by its hash. No Node, no npm.
 [workspace]
 resolver = "3"
@@ -15,7 +15,8 @@ authors = ["Michael Borejdo <mborejdo@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mborejdo/onepage"
 homepage = "https://github.com/mborejdo/onepage"
-# Not on crates.io: Biome's crates are git-only dependencies, which `cargo publish` refuses.
+# Not on crates.io: Oxc's linter and formatter are git-only dependencies, which `cargo publish`
+# refuses.
 publish = false
 
 [workspace.dependencies]
@@ -41,19 +42,15 @@ oxc_span = "=0.158.0"
 tokio = { version = "1", default-features = false, features = ["rt"] }
 # Tailwind-style utilities from the class names the source uses.
 encre-css = "0.21"
-# The lint and the formatter, in process. From git because Biome does not publish these crates;
-# one tag for all (they only build together), the release `@biomejs/biome` is on.
-biome_analyze = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_diagnostics = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_embeds = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_formatter = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_js_analyze = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_js_formatter = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_js_parser = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_js_syntax = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_languages = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-biome_rowan = { git = "https://github.com/biomejs/biome", tag = "@biomejs/biome@2.5.14" }
-# One file per core in the lint; already in the tree through Biome.
+# The lint and the formatter, in process: Oxlint's rules and Oxc's formatter. Oxc does not
+# publish these crates, so they come from git, at the tag whose Oxc crates are the 0.158.0
+# rolldown links (see [patch.crates-io]): one copy of Oxc in the build.
+oxc_linter = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_formatter = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_formatter_core = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_diagnostics = "=0.158.0"
+rustc-hash = "2"
+# One file per core in the lint; already in the tree through Oxc.
 rayon = "1"
 # `onepage test`: a JavaScript engine in Rust, behind the off-by-default `test` feature.
 boa_engine = "0.22"
@@ -65,6 +62,34 @@ zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 
 # The workspace's own crates.
 pagekit = { path = "packages/pagekit", version = "0.1.0" }
+
+# Every Oxc crate rolldown takes from crates.io, from the same tag as the linter and the formatter:
+# its Oxc version there is the one rolldown names (0.158.0), so the patch applies and one copy of
+# Oxc is built. A bump moves rolldown, the `=0.158.0` pins and this tag together.
+[patch.crates-io]
+oxc = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_allocator = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_ast = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_ast_macros = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_ast_visit = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_codegen = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_compat = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_data_structures = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_diagnostics = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_ecmascript = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_estree = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_isolated_declarations = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_mangler = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_minifier = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_parser = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_regular_expression = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_semantic = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_span = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_str = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_syntax = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_transformer = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_transformer_plugins = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
+oxc_traverse = { git = "https://github.com/oxc-project/oxc", tag = "oxlint_v1.93.0" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -78,7 +103,7 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
-# Unavoidable with many transitive deps (rolldown and Biome pull in several versions of some).
+# Unavoidable with many transitive deps (rolldown and Oxc pull in several versions of some).
 multiple_crate_versions = "allow"
 module_name_repetitions = "allow"
 # No required `# Errors` / `# Panics` sections, no doc-paragraph length limit.

@@ -189,7 +189,7 @@ export function useTool<T = unknown>(
   const current = useRef(state);
   const key = JSON.stringify(args);
   const every = opts?.every ?? 0;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is what `reload` bumps
+  // eslint-disable-next-line react/exhaustive-deps -- `tick` is what `reload` bumps
   useEffect(() => {
     const set = (next: ToolState<T>) => {
       current.current = next;

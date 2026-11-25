@@ -43,7 +43,7 @@ pub struct Config {
     pub vendor: Option<PathBuf>,
     /// The import map: a bare specifier or package name to a package folder or a file.
     pub imports: BTreeMap<String, PathBuf>,
-    /// Biome rules moved by group and by name, for the page's own sources.
+    /// Lint rules moved by group and by name, for the page's own sources.
     pub lint: pagekit::lint::Config,
 }
 

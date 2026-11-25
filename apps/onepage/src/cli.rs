@@ -14,7 +14,7 @@ const ROOT_FOOTER: &str = "\
 Examples:
   onepage new hello                 make hello/onepage.toml, index.html, src/app.tsx
   onepage build hello               write hello/dist/index.html, minified
-  onepage lint hello --fix          Biome's safe fixes and formatter, written back
+  onepage lint hello --fix          the safe fixes and the formatter, written back
   onepage dev hello --port 8000     rebuild on save, serve on http://127.0.0.1:8000/
 
 Exit codes:
@@ -48,7 +48,7 @@ Exit codes:
 const LINT_FOOTER: &str = "\
 Examples:
   onepage lint hello                one `file:line: error: rule: message` line per finding, on stdout
-  onepage lint hello --fix          Biome's safe fixes and formatter, written back
+  onepage lint hello --fix          the safe fixes and the formatter, written back
 
 Exit codes:
   0  no errors (notes only)
@@ -106,7 +106,7 @@ pub(crate) enum Command {
         #[arg(long, value_name = "PORT")]
         port: Option<u16>,
     },
-    /// Lint the page's sources with Biome; a file the formatter would change is a finding.
+    /// Lint the page's sources with Oxc; a file the formatter would change is a finding.
     #[command(after_help = LINT_FOOTER)]
     Lint {
         /// The page's folder.

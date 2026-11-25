@@ -375,11 +375,11 @@ fn lint_reports_fixes_in_place_and_fails_the_build() {
     let lines: Vec<String> = lint.findings.iter().map(ToString::to_string).collect();
     assert_eq!(
         lines[0],
-        "src/app.tsx:1: error: lint/format: not as the formatter would leave it; \
+        "src/app.tsx:1: error: format: not as the formatter would leave it; \
          `onepage lint --fix` rewrites it"
     );
     assert!(
-        lines[1].starts_with("../lint-kit/index.ts:2: note: lint/suspicious/noDebugger: "),
+        lines[1].starts_with("../lint-kit/index.ts:2: note: eslint/no-debugger: "),
         "a mapped package keeps the preset and only notes: {lines:?}"
     );
     assert_eq!((lint.errors(), lines.len()), (1, 2), "{lines:?}");
@@ -407,7 +407,7 @@ fn lint_reports_fixes_in_place_and_fails_the_build() {
     let (text, code) = onepage::report(&error);
     assert_eq!(code, 1);
     assert!(
-        text.contains("src/more.ts:3: error: lint/suspicious/noDoubleEquals: "),
+        text.contains("src/more.ts:3: error: eslint/eqeqeq: "),
         "{text}"
     );
 }

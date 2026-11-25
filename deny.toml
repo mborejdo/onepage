@@ -23,18 +23,14 @@ allow = [
     "BSL-1.0",
 ]
 confidence-threshold = 0.9
-# option-ext (via Biome's file system crate): MPL-2.0, file-level copyleft, used unmodified.
-exceptions = [{ crate = "option-ext", allow = ["MPL-2.0"] }]
+exceptions = []
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [
-    # Biome's lint and formatter crates: Biome does not publish them to crates.io, so they
-    # come from the release tag `@biomejs/biome@2.5.14`.
-    "https://github.com/biomejs/biome",
-    # Biome's analyzer links React's compiler crates, which Biome takes from React's repo at
-    # a pinned rev.
-    "https://github.com/react/react",
+    # Oxc's linter and formatter: Oxc does not publish them to crates.io, so they (and, through
+    # [patch.crates-io], every Oxc crate) come from the tag `oxlint_v1.93.0`.
+    "https://github.com/oxc-project/oxc",
 ]

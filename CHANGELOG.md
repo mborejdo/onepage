@@ -10,15 +10,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   minifies; the page is one IIFE over the Preact globals. Side-effect-free vendored packages are
   tree-shaken, so their pages get smaller. The checks (`h`/`Fragment` imports, undeclared names,
   `import.meta`) run on Oxc's semantic model. MSRV 1.97 (Oxc's).
+- Lint and format on Oxc in place of Biome: Oxlint's rules and Oxc's (Prettier-compatible)
+  formatter, in process, from git (tag `oxlint_v1.93.0`, the one whose Oxc crates are the
+  0.158.0 rolldown links; `[patch.crates-io]` keeps one copy of Oxc). The preset is Biome's
+  recommended set mapped rule by rule to Oxlint (`biome-rules.tsv`), plus
+  `react/rules-of-hooks`. Findings name Oxlint rules (`eslint/no-debugger`); the formatter's
+  rule is `format`, a syntax error's `parse`. `[lint]` takes Oxlint names and, as before, Biome
+  groups and rule names; an approximate (`inspired`) equivalent is a note at most. Only the
+  errors' fixes are applied.
+- `pagekit::lint::lint_text` returns a `Result` (the linter's configuration can fail).
 - `pagekit::check` takes an Oxc `Semantic`; `pagekit::bundle::Bundled::modules` is in execution
   order and leaves out tree-shaken modules.
 
 ### Added
 
-- `onepage lint [DIR]`: Biome's `recommended` lint and formatter over the page's own sources
-  (not `vendor` or `[wasm] glue`), JSX under `h`/`Fragment`. One
+- `onepage lint [DIR]`: the lint and formatter over the page's own sources (not `vendor` or
+  `[wasm] glue`), JSX under `h`/`Fragment`. One
   `file:line: error|note: rule: message` line per finding on stdout, then `N errors, 0 warnings`;
-  exit 1 on an error, unformatted files are `lint/format` errors. Mapped packages are linted
+  exit 1 on an error, unformatted files are `format` errors. Mapped packages are linted
   read-only, as notes.
 - `onepage lint --fix`: safe fixes and formatter (two spaces, 100 columns, double quotes,
   trailing commas, semicolons) written in place.
@@ -58,7 +67,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - `onepage build` and `dev` fix and format before bundling; a lint error fails the build.
   `onepage::build` returns the lint report with the path.
 - Examples and `onepage new` are lint-clean (`type="button"`, no `!` on the root element).
-- Not on crates.io: Biome's crates are git dependencies (`publish = false`).
+- Not on crates.io: Oxc's linter and formatter crates are git dependencies (`publish = false`).
 - `pagekit::bundle::bundle` returns the script and loaded modules; `pagekit::css::generate` and
   `pagekit::test::run` take the page's style and page.
 - With a token file, `font-sans`/`font-mono` are `var(--font-sans)`/`var(--font-mono)`, not

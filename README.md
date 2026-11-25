@@ -11,15 +11,15 @@ cargo install --path apps/onepage
 cargo install --path apps/onepage --features test   # adds `onepage test` (embeds boa)
 ```
 
-Not on crates.io: Biome ships its crates only as a git tag, which `cargo install --path`
-fetches.
+Not on crates.io: Oxc ships its linter and formatter crates only as a git tag, which
+`cargo install --path` fetches.
 
 ## Usage
 
 ```sh
 onepage new hello                 # hello/onepage.toml, index.html, src/app.tsx
 onepage build hello               # hello/dist/index.html, minified (--out to change)
-onepage lint hello [--fix]        # Biome lint and formatter; --fix writes safe fixes back
+onepage lint hello [--fix]        # Oxc lint and formatter; --fix writes safe fixes back
 onepage dev hello --port 8000     # rebuild on save, unminified, on http://127.0.0.1:8000/
 onepage test hello                # src/**/*.test.ts (`test` feature)
 ```
@@ -64,21 +64,26 @@ asked (reason on stderr).
 
 ## Lint
 
-Biome's lint and formatter, in process, over the page's own `.ts`/`.tsx` files (not `vendor`,
-not `[wasm] glue`). Rules: Biome's `recommended`, no `nursery`, `react` and `test` domains on,
-`project` off, classic JSX under Preact's `h` and `Fragment`.
+Oxc's linter (Oxlint's rules) and formatter, in process, over the page's own `.ts`/`.tsx` files
+(not `vendor`, not `[wasm] glue`). The preset is the rule set onepage ran under Biome - Biome's
+`recommended`, no `nursery`, `react` and `test` domains, `project` off - with each rule replaced by
+its Oxlint equivalent (the table is
+[`packages/pagekit/src/biome-rules.tsv`](packages/pagekit/src/biome-rules.tsv)), plus
+`react/rules-of-hooks`. Classic JSX under Preact's `h` and `Fragment`.
 
 ```text
-src/app.tsx:10: error: lint/a11y/useButtonType: Provide an explicit type prop for the button element.
+src/app.tsx:10: error: react/button-has-type: `button` elements must have a valid `type` attribute.
 1 errors, 0 warnings
 ```
 
 - The report goes to stdout and ends with the counts. `error` exits 1, `notice` only prints (as
-  `note:`). `useExhaustiveDependencies` and `useJsxKeyInIterable`
-  are notes by default; a file the formatter would change is a `lint/format` error.
+  `note:`). `react/exhaustive-deps` and `react/jsx-key` are notes by default; a file the
+  formatter would change is a `format` error, one that does not parse a `parse` error.
+- `// eslint-disable-next-line <rule> -- why` (or `oxlint-disable-next-line`) silences a line.
 - `[imports]` packages are linted read-only, as notes: fix them where they live.
-- `--fix` applies the safe fixes (plus dropping unused imports), then formats: two spaces, 100
-  columns, double quotes, trailing commas, semicolons. Twice is once.
+- `--fix` applies the errors' safe fixes (plus dropping unused imports), then formats
+  (Prettier-compatible): two spaces, 100 columns, double quotes, trailing commas, semicolons.
+  Twice is once. A note never rewrites the file.
 - `build` and `dev` fix and format first, so what's bundled is what's on disk. A lint error
   fails `build` before anything is written; `dev` keeps the last good page. Use `onepage lint`
   as the read-only CI gate.
@@ -123,12 +128,19 @@ mono = "JetBrains Mono"
 
 [lint]                       # levels error, notice, off: per group, then per rule
 groups = { style = "error", complexity = "error" }
-rules = { "style/noTernary" = "off", "suspicious/noConsole" = "notice" }
+rules = { "eslint/no-console" = "notice", "style/noTernary" = "off" }
 ```
 
-A `[lint]` group covers its rules in the domains above, not deprecated or `nursery` ones (turn
-those on by name). Rules are `<group>/<name>`, `lint/` in front is allowed. An unknown group or
-rule is an error, so is one that needs Biome's module graph.
+A rule is an Oxlint rule as a finding names it (`<plugin>/<name>`: `eslint/no-console`,
+`jsx-a11y/alt-text`), or a Biome rule by `<group>/<name>`, which means its Oxlint equivalent in
+the table (`lint/` in front is allowed). A group is one of Biome's (`a11y`, `complexity`,
+`correctness`, `performance`, `security`, `style`, `suspicious`): the Oxlint equivalents of its
+rules in the domains above, not deprecated or `nursery` ones. Where the Oxlint rule only
+approximates the Biome one (`inspired` in the table, e.g. `unicorn/filename-case` for
+`useFilenamingConvention`), a group or Biome name turns it on as a note at most; name the Oxlint
+rule to make it an error. Biome names whose rule has no equivalent may be turned `off` (a no-op);
+turning one on is an error, as is an unknown name, a `nursery` group, a rule that needs a module
+graph or one that needs type information.
 
 The policy is the first element of `<head>`:
 
@@ -194,7 +206,7 @@ runtime, so everything shares one Preact.
 
 ## How it works
 
-- **Lint** - Biome fixes and formats the sources; an error stops the build.
+- **Lint** - Oxc fixes and formats the sources; an error stops the build.
 - **Bundle** - Oxc runs the checks on each module; rolldown strips TypeScript, compiles JSX,
   links everything (tree-shaken) into one IIFE whose parameters are `window.preact`,
   `window.preactHooks` and `window.preactJsx`. `build` minifies and mangles (Oxc's minifier).

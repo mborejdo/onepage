@@ -39,7 +39,7 @@ pub fn report(e: &anyhow::Error) -> (String, u8) {
         )
 }
 
-/// Biome over the page in `dir` ([`pagekit::lint::page`]): read-only, a file the formatter
+/// Oxc's linter and formatter over the page in `dir` ([`pagekit::lint::page`]): read-only, a file the formatter
 /// would change is a finding; with `fix`, the safe fixes and the formatter are written back.
 pub fn lint(dir: &Path, fix: bool) -> Result<Report> {
     let config = Config::load(dir)?;
