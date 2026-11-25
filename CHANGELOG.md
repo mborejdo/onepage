@@ -2,39 +2,27 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow semver.
 
-## Unreleased
+## 0.1.0 - 2026-11-25
 
-### Changed
-
-- The bundler is rolldown (Oxc inside) in place of swc: Oxc strips TypeScript, compiles JSX and
-  minifies; the page is one IIFE over the Preact globals. Side-effect-free vendored packages are
-  tree-shaken, so their pages get smaller. The checks (`h`/`Fragment` imports, undeclared names,
-  `import.meta`) run on Oxc's semantic model. MSRV 1.97 (Oxc's).
-- Lint and format on Oxc in place of Biome: Oxlint's rules and Oxc's (Prettier-compatible)
-  formatter, in process, from git (tag `oxlint_v1.93.0`, the one whose Oxc crates are the
-  0.158.0 rolldown links; `[patch.crates-io]` keeps one copy of Oxc). The preset is onepage's
-  own list of 166 Oxlint rules (`packages/pagekit/src/lint-preset.txt`). Findings name Oxlint
-  rules (`eslint/no-debugger`); the formatter's rule is `format`, a syntax error's `parse`. Only
-  the errors' fixes are applied.
-- Breaking: `[lint]` takes Oxlint names only. `groups` is gone; `categories` moves Oxlint's
-  categories (`correctness`, `suspicious`, `pedantic`, `perf`, `style`, `restriction`) over the
-  preset's plugins. `rules` names a rule as a finding does and may give its options as Oxlint
-  takes them (`"eslint/max-params" = ["error", { max = 4 }]`). Any other name, a `nursery`
-  category or a `groups` key is a `onepage.toml:line: error: [lint] ...` finding (exit 1).
-- A malformed or unknown key in `onepage.toml` is one `onepage.toml:line: error: message` line
-  (exit 1), not TOML's multi-line report; a token file's names its line. A failed bundle is one
-  line (rolldown's first diagnostic).
-- `lint --fix`, `build` and `dev` print one `<path>  <N> KB` line per file they write, the
-  formatted sources included (`formatted <file>` and `built <file>` are gone).
-- A `[types]` note to lower a count points at the count's line.
-- MSRV 1.100 (tsrs, on by default); `--no-default-features` builds without type checks on 1.97.
-- `homepage` dropped from the manifests: it repeated `repository` (Cargo 1.100 warns).
-- `pagekit::lint::lint_text` returns a `Result` (the linter's configuration can fail).
-- `pagekit::check` takes an Oxc `Semantic`; `pagekit::bundle::Bundled::modules` is in execution
-  order and leaves out tree-shaken modules.
+The first release.
 
 ### Added
 
+- `onepage build`: a Preact TSX page into one self-contained, minified HTML file. TypeScript
+  stripped, JSX compiled to `h`/`Fragment`, relative imports linked, minified; `preact` and
+  `preact/hooks` come from the inlined Preact 10.29.7 runtime.
+- encre-css utilities for the class names in the source and shell, then the page's `style`.
+- A strict CSP as the first `<meta>` in `<head>`: inline script and style pinned by sha256,
+  `default-src 'none'`, extra sources in `[csp]`.
+- `[wasm]`: allows `WebAssembly` and `Worker`, adds `'wasm-unsafe-eval'`, copies `files` next to
+  the page, exempts `glue` from the checks.
+- Checks that fail the build, each a `file:line: message`: JSX without `h` (or `<>` without
+  `Fragment`), an undeclared global, `import.meta`, an import outside the page folder or from a
+  package.
+- `onepage dev`: rebuild on change, unminified; `--port` serves on 127.0.0.1.
+- `onepage new`: a page folder that builds on the first try.
+- `onepage test` (`test` feature): `src/**/*.test.ts` in boa, an embedded JavaScript engine.
+- `onepage.toml`: `entry`, `shell`, `out`, `style`, `favicon`, `title`, `[csp]`, `[wasm]`.
 - `onepage types [DIR]` (cargo feature `types`, on by default): tsrs 7.1.0-beta.tsrs5, the TypeScript 7 checker
   in Rust, in process over the page's own sources: tsc's errors and six type-aware rules
   (`no-floating-promises`, `no-misused-promises`, `await-thenable`, `unbound-method`,
@@ -84,6 +72,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Changed
 
+During development; none of it was released before.
+
+- The bundler is rolldown (Oxc inside) in place of swc: Oxc strips TypeScript, compiles JSX and
+  minifies; the page is one IIFE over the Preact globals. Side-effect-free vendored packages are
+  tree-shaken, so their pages get smaller. The checks (`h`/`Fragment` imports, undeclared names,
+  `import.meta`) run on Oxc's semantic model. MSRV 1.97 (Oxc's).
+- Lint and format on Oxc in place of Biome: Oxlint's rules and Oxc's (Prettier-compatible)
+  formatter, in process, from git (tag `oxlint_v1.93.0`, the one whose Oxc crates are the
+  0.158.0 rolldown links; `[patch.crates-io]` keeps one copy of Oxc). The preset is onepage's
+  own list of 166 Oxlint rules (`packages/pagekit/src/lint-preset.txt`). Findings name Oxlint
+  rules (`eslint/no-debugger`); the formatter's rule is `format`, a syntax error's `parse`. Only
+  the errors' fixes are applied.
+- `[lint]` takes Oxlint names only. `groups` is gone; `categories` moves Oxlint's
+  categories (`correctness`, `suspicious`, `pedantic`, `perf`, `style`, `restriction`) over the
+  preset's plugins. `rules` names a rule as a finding does and may give its options as Oxlint
+  takes them (`"eslint/max-params" = ["error", { max = 4 }]`). Any other name, a `nursery`
+  category or a `groups` key is a `onepage.toml:line: error: [lint] ...` finding (exit 1).
+- A malformed or unknown key in `onepage.toml` is one `onepage.toml:line: error: message` line
+  (exit 1), not TOML's multi-line report; a token file's names its line. A failed bundle is one
+  line (rolldown's first diagnostic).
+- `lint --fix`, `build` and `dev` print one `<path>  <N> KB` line per file they write, the
+  formatted sources included (`formatted <file>` and `built <file>` are gone).
+- A `[types]` note to lower a count points at the count's line.
+- MSRV 1.100 (tsrs, on by default); `--no-default-features` builds without type checks on 1.97.
+- `homepage` dropped from the manifests: it repeated `repository` (Cargo 1.100 warns).
+- `pagekit::lint::lint_text` returns a `Result` (the linter's configuration can fail).
+- `pagekit::check` takes an Oxc `Semantic`; `pagekit::bundle::Bundled::modules` is in execution
+  order and leaves out tree-shaken modules.
 - `onepage build` and `dev` fix and format before bundling; a lint error fails the build.
   `onepage::build` returns the lint report with the path.
 - Examples and `onepage new` are lint-clean (`type="button"`, no `!` on the root element).
@@ -97,25 +113,3 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   colour is `expected a #rrggbb colour, got "x"`.
 - Every subcommand's `--help` has examples and exit codes; `--out FILE`, `--port PORT`.
 - panelkit's font licences sit next to the fonts, in `fonts/`.
-
-## 0.1.0 - unreleased
-
-The first release.
-
-### Added
-
-- `onepage build`: a Preact TSX page into one self-contained, minified HTML file. swc strips
-  TypeScript, compiles JSX to `h`/`Fragment`, links relative imports and minifies; `preact` and
-  `preact/hooks` come from the inlined Preact 10.29.7 runtime.
-- encre-css utilities for the class names in the source and shell, then the page's `style`.
-- A strict CSP as the first `<meta>` in `<head>`: inline script and style pinned by sha256,
-  `default-src 'none'`, extra sources in `[csp]`.
-- `[wasm]`: allows `WebAssembly` and `Worker`, adds `'wasm-unsafe-eval'`, copies `files` next to
-  the page, exempts `glue` from the checks.
-- Checks that fail the build, each a `file:line: message`: JSX without `h` (or `<>` without
-  `Fragment`), an undeclared global, `import.meta`, an import outside the page folder or from a
-  package.
-- `onepage dev`: rebuild on change, unminified; `--port` serves on 127.0.0.1.
-- `onepage new`: a page folder that builds on the first try.
-- `onepage test` (`test` feature): `src/**/*.test.ts` in boa, an embedded JavaScript engine.
-- `onepage.toml`: `entry`, `shell`, `out`, `style`, `favicon`, `title`, `[csp]`, `[wasm]`.
