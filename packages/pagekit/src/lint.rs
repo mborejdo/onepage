@@ -5,11 +5,10 @@
 //! mapped packages of `[imports]` are linted read-only under the preset, their findings
 //! notes: a fix goes where the package lives.
 //!
-//! The preset is Biome's `recommended` set as it ran before (no `nursery`, the `react` and
-//! `test` domains), each rule replaced by its Oxlint equivalent (`biome-rules.tsv`), plus
-//! `react/rules-of-hooks`. `[lint]` moves rules on, off or to notes (level `notice`)
-//! ([`Rules`]): by Biome group, by Biome rule name or by Oxlint rule name. Only safe fixes are
-//! applied, and the removal of an unused import.
+//! The preset is onepage's own list of Oxlint rules (`lint-preset.txt`). `[lint]` moves rules
+//! on, off or to notes (level `notice`) ([`Rules`]): by Oxlint category and by Oxlint rule
+//! name, with the rule's options where it takes them. Only safe fixes are applied, and the
+//! removal of an unused import.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
@@ -17,7 +16,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow};
 use oxc_allocator::Allocator;
 use oxc_diagnostics::Severity;
 use oxc_formatter::{JsFormatOptions, QuoteStyle, Semicolons, TrailingCommas};
@@ -34,17 +33,45 @@ use serde_json::{Value, json};
 
 use crate::Page;
 
-/// The `[lint]` table: rules moved by group and by name. A rule's level is the preset's, then
-/// its group's here, then its own here.
+/// The `[lint]` table: rules moved by Oxlint category and by name. A rule's level is the
+/// preset's, then its category's here, then its own here.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
-    /// `style = "error"`: every rule of a Biome group (`nursery` excepted), run by its Oxlint
-    /// equivalent, at that level.
-    pub groups: BTreeMap<String, Level>,
-    /// `"eslint/no-debugger" = "error"`, as a finding names it, or a Biome rule by its
-    /// `<group>/<name>` (`"suspicious/noDebugger"`), which means its Oxlint equivalent.
-    pub rules: BTreeMap<String, Level>,
+    /// `style = "error"`: every rule of an Oxlint category (`nursery` excepted) in the preset's
+    /// plugins, at that level.
+    pub categories: BTreeMap<String, Level>,
+    /// `"eslint/no-debugger" = "off"`, by the name a finding gives the rule; or the level and
+    /// the rule's options, as Oxlint takes them: `"eslint/max-params" = ["error", { max = 4 }]`.
+    pub rules: BTreeMap<String, Value>,
+    /// Not a key: read only to say that `categories` took its place.
+    #[doc(hidden)]
+    pub groups: Option<Value>,
+}
+
+/// A `[lint]` entry that cannot run: the name it is about and what is wrong.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigError {
+    /// The rule, category or key, as written.
+    pub name: String,
+    /// The one-line reason, starting at the key (`rules: ...`).
+    pub message: String,
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+/// A [`ConfigError`] about `name`.
+fn mistake(name: &str, message: String) -> ConfigError {
+    ConfigError {
+        name: name.to_owned(),
+        message,
+    }
 }
 
 /// What a `[lint]` entry does to a rule.
@@ -450,31 +477,15 @@ fn first_change(a: &str, b: &str) -> usize {
     line
 }
 
-/// Rules added to the preset beyond Biome's recommended set: the hooks rule Biome left out of
-/// it.
-const EXTRA: &[&str] = &["react/rules-of-hooks"];
-
-/// Rules reported as notes in the preset, never failing.
-///
-/// - `react/exhaustive-deps`: an extra dependency is often deliberate, to re-run an effect,
-///   and the rule cannot tell that from a mistake.
-/// - `react/jsx-key`: flags JSX elements in arrays whatever the array is for.
-const NOTICE: &[&str] = &["react/exhaustive-deps", "react/jsx-key"];
-
-/// The Biome domains whose rules a group switch and the preset include: no domain, `React`
-/// (Preact follows its rules) and `Test`. `Project` needs a module graph a lone file does not
-/// have.
-const DOMAINS: &[&str] = &["React", "Test"];
-
-/// The Biome groups a page may switch.
-const GROUPS: &[&str] = &[
-    "a11y",
-    "complexity",
+/// The Oxlint categories a page may move whole. `nursery` is left out: its rules are
+/// unfinished, and turned on by name only.
+const CATEGORIES: &[&str] = &[
     "correctness",
-    "performance",
-    "security",
-    "style",
     "suspicious",
+    "pedantic",
+    "perf",
+    "style",
+    "restriction",
 ];
 
 /// The rules a lint runs and at which level: the preset, or a page's `[lint]` on top of it.
@@ -483,117 +494,93 @@ const GROUPS: &[&str] = &[
 pub struct Rules {
     /// Every rule that runs, by its Oxlint name, with its level (never `Off`).
     levels: BTreeMap<String, Level>,
-    /// The options of a rule turned on by a Biome name: the Biome rule's defaults.
-    options: BTreeMap<String, &'static str>,
+    /// The options a page gave a rule (the elements after the level).
+    options: BTreeMap<String, Vec<Value>>,
 }
 
 impl Default for Rules {
     fn default() -> Self {
-        static PRESET: LazyLock<Rules> = LazyLock::new(|| {
-            let mut rules = Rules {
-                levels: BTreeMap::new(),
-                options: BTreeMap::new(),
-            };
-            for b in biome().iter().filter(|b| b.recommended && b.grouped()) {
-                rules.set_biome(b, Level::Error);
-            }
-            for rule in EXTRA {
-                rules.set(rule, Level::Error, None);
-            }
-            for rule in NOTICE {
-                rules.set(rule, Level::Notice, None);
-            }
-            rules
+        static PRESET: LazyLock<Rules> = LazyLock::new(|| Rules {
+            levels: preset()
+                .iter()
+                .map(|(rule, level)| ((*rule).to_owned(), *level))
+                .collect(),
+            options: BTreeMap::new(),
         });
         PRESET.clone()
     }
 }
 
 impl Rules {
-    /// The rules `config` asks for: the preset, then each group's level, then each rule's
-    /// (Biome names first, Oxlint names last).
+    /// The rules `config` asks for: the preset, then each category's level, then each rule's.
     ///
-    /// A group or rule neither Biome nor Oxlint has (named), a `nursery` group, a rule that
-    /// needs the project's module graph or type information, or a Biome rule turned on that
-    /// has no Oxlint equivalent is an error.
-    pub fn of(config: &Config) -> Result<Self> {
+    /// # Errors
+    ///
+    /// A `groups` key, an unknown or `nursery` category, a rule Oxlint does not have (named),
+    /// a rule that needs type information, or a level other than `error`, `notice` or `off`.
+    pub fn of(config: &Config) -> Result<Self, ConfigError> {
+        if config.groups.is_some() {
+            return Err(mistake(
+                "groups",
+                "groups: no such key; Oxlint's categories go in `categories` \
+                 (`categories = { style = \"error\" }`)"
+                    .to_owned(),
+            ));
+        }
         let mut rules = Self::default();
-        for (group, &level) in &config.groups {
-            if group == "nursery" {
-                bail!(
-                    "groups.nursery: a nursery rule is unfinished and is turned on by name \
-                     only, in `rules`"
-                );
-            }
-            if !GROUPS.contains(&group.as_str()) {
-                bail!(
-                    "groups.{group}: no such group; one of {}",
-                    GROUPS.join(", ")
-                );
-            }
-            // Several Biome rules can map to one Oxlint rule: the highest level wins.
-            let mut moved: BTreeMap<&str, (Level, &Biome)> = BTreeMap::new();
-            for b in biome().iter().filter(|b| b.group == group && b.grouped()) {
-                if let Some(rule) = b.oxlint {
-                    let wanted = b.capped(level);
-                    let slot = moved.entry(rule).or_insert((wanted, b));
-                    if rank(wanted) > rank(slot.0) {
-                        *slot = (wanted, b);
-                    }
-                }
-            }
-            for (level, b) in moved.into_values() {
-                rules.set_biome(b, level);
-            }
-        }
-        let (biome_named, oxlint_named): (Vec<_>, Vec<_>) = config
-            .rules
+        let plugins: BTreeSet<&str> = preset()
             .iter()
-            .map(|(k, l)| (k.strip_prefix("lint/").unwrap_or(k), *l))
-            .partition(|(k, _)| GROUPS.iter().any(|g| k.starts_with(&format!("{g}/"))));
-        for (key, level) in biome_named {
-            let (group, name) = key.split_once('/').unwrap_or((key, ""));
-            let Some(b) = biome().iter().find(|b| b.group == group && b.name == name) else {
-                bail!("rules.\"{key}\": Biome has no rule `{name}` in `{group}`");
-            };
-            if b.domains.contains(&"Project") {
-                bail!(
-                    "rules.\"{key}\": the rule reads the project's module graph, which a lint \
-                     of one file at a time does not have"
-                );
+            .filter_map(|(rule, _)| rule.split_once('/').map(|(plugin, _)| plugin))
+            .collect();
+        for (category, &level) in &config.categories {
+            if category == "nursery" {
+                return Err(mistake(
+                    category,
+                    "categories: a nursery rule is unfinished; turn it on by name, in `rules`"
+                        .to_owned(),
+                ));
             }
-            if b.oxlint.is_none() && level != Level::Off {
-                bail!(
-                    "rules.\"{key}\": Biome's `{name}` has no Oxlint equivalent; name an Oxlint \
-                     rule instead (`plugin/rule`)"
-                );
+            if !CATEGORIES.contains(&category.as_str()) {
+                return Err(mistake(
+                    category,
+                    format!(
+                        "categories: expected one of {}, got \"{category}\"",
+                        choices(CATEGORIES.iter().copied())
+                    ),
+                ));
             }
-            rules.set_biome(b, b.capped(level));
+            for rule in oxlint().iter().filter(|r| {
+                r.category == category.as_str() && !r.type_aware && plugins.contains(r.plugin)
+            }) {
+                rules.set(&format!("{}/{}", rule.plugin, rule.name), level, vec![]);
+            }
         }
-        for (key, level) in oxlint_named {
-            let Some((plugin, name)) = key.split_once('/') else {
-                bail!(
-                    "rules.\"{key}\": a rule is `<plugin>/<name>`, as a finding names it \
-                     (`eslint/no-debugger`), or a Biome `<group>/<name>`"
-                );
-            };
+        for (key, setting) in &config.rules {
+            let (level, options) = setting_of(key, setting)?;
             let known = oxlint();
-            let Some(rule) = known.iter().find(|r| r.plugin == plugin && r.name == name) else {
-                if known.iter().any(|r| r.plugin == plugin) {
-                    bail!("rules.\"{key}\": Oxlint has no rule `{name}` in `{plugin}`");
-                }
-                let plugins: BTreeSet<&str> = known.iter().map(|r| r.plugin).collect();
-                bail!(
-                    "rules.\"{key}\": no Oxlint plugin `{plugin}` or Biome group; plugins: {}",
-                    plugins.into_iter().collect::<Vec<_>>().join(", ")
-                );
-            };
+            let rule = key
+                .split_once('/')
+                .and_then(|(plugin, name)| {
+                    known.iter().find(|r| r.plugin == plugin && r.name == name)
+                })
+                .ok_or_else(|| {
+                    let plugins: BTreeSet<&str> = known.iter().map(|r| r.plugin).collect();
+                    mistake(
+                        key,
+                        format!(
+                            "rules: expected an Oxlint rule by the name a finding gives it \
+                             (`eslint/no-debugger`), got \"{key}\"; the plugin is one of {}",
+                            choices(plugins.into_iter())
+                        ),
+                    )
+                })?;
             if rule.type_aware {
-                bail!(
-                    "rules.\"{key}\": the rule needs type information, which a lint does not have"
-                );
+                return Err(mistake(
+                    key,
+                    format!("rules: \"{key}\" needs type information, which a lint does not have"),
+                ));
             }
-            rules.set(key, level, None);
+            rules.set(key, level, options);
         }
         Ok(rules)
     }
@@ -604,22 +591,15 @@ impl Rules {
         self.levels.get(rule) == Some(&Level::Notice)
     }
 
-    fn set(&mut self, rule: &str, level: Level, options: Option<&'static str>) {
+    fn set(&mut self, rule: &str, level: Level, options: Vec<Value>) {
         self.options.remove(rule);
         if level == Level::Off {
             self.levels.remove(rule);
             return;
         }
         self.levels.insert(rule.to_owned(), level);
-        if let Some(options) = options {
+        if !options.is_empty() {
             self.options.insert(rule.to_owned(), options);
-        }
-    }
-
-    /// The Oxlint equivalent of `b` at `level`, with the Biome rule's options.
-    fn set_biome(&mut self, b: &Biome, level: Level) {
-        if let Some(rule) = b.oxlint {
-            self.set(rule, level, b.options);
         }
     }
 
@@ -636,20 +616,18 @@ impl Rules {
             let (plugin, name) = rule.split_once('/').unwrap_or(("eslint", rule));
             plugins.insert(plugin_config_name(plugin));
             let mut value = vec![json!(severity)];
-            if rule == "eslint/no-unused-vars" {
-                // As Biome did: `_`-names are allowed, and so is a `Fragment` only `<>` uses
-                // (the classic runtime reads it; Oxlint already knows `h`). An unused import
-                // is removed by the fix: the TypeScript strip would elide it anyway.
+            if let Some(options) = self.options.get(rule) {
+                value.extend(options.iter().cloned());
+            } else if rule == "eslint/no-unused-vars" {
+                // `_`-names are allowed, and so is a `Fragment` only `<>` uses (the classic
+                // runtime reads it; Oxlint already knows `h`). An unused import is removed by
+                // the fix: the TypeScript strip would elide it anyway.
                 value.push(json!({
                     "varsIgnorePattern": "^(_|Fragment$)",
                     "argsIgnorePattern": "^_",
                     "caughtErrors": "none",
                     "fix": { "imports": "safe-fix", "variables": "suggestion" }
                 }));
-            } else if let Some(Ok(Value::Array(options))) =
-                self.options.get(rule).map(|o| serde_json::from_str(o))
-            {
-                value.extend(options);
             }
             rules.insert(
                 format!("{}/{name}", plugin_config_name(plugin)),
@@ -665,13 +643,58 @@ impl Rules {
     }
 }
 
-/// `Off` < `Notice` < `Error`.
-const fn rank(level: Level) -> u8 {
-    match level {
-        Level::Off => 0,
-        Level::Notice => 1,
-        Level::Error => 2,
+/// The level and the options of a `rules` entry: `"off"`, or `["error", { ... }]`.
+fn setting_of(key: &str, setting: &Value) -> Result<(Level, Vec<Value>), ConfigError> {
+    let (level, options) = match setting {
+        Value::Array(items) => match items.split_first() {
+            Some((level, options)) => (level, options.to_vec()),
+            None => (setting, vec![]),
+        },
+        level => (level, vec![]),
+    };
+    let level = match level.as_str() {
+        Some("error") => Level::Error,
+        Some("notice") => Level::Notice,
+        Some("off") => Level::Off,
+        _ => {
+            return Err(mistake(
+                key,
+                format!("rules: \"{key}\": expected error, notice or off, got {level}"),
+            ));
+        },
+    };
+    Ok((level, options))
+}
+
+/// `a, b or c`.
+fn choices<'a>(items: impl Iterator<Item = &'a str>) -> String {
+    let items: Vec<&str> = items.collect();
+    match items.split_last() {
+        Some((last, [])) => (*last).to_owned(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+        None => String::new(),
     }
+}
+
+/// The preset, from `lint-preset.txt`: each rule with its level.
+fn preset() -> &'static [(&'static str, Level)] {
+    static PRESET: LazyLock<Vec<(&str, Level)>> = LazyLock::new(|| {
+        include_str!("lint-preset.txt")
+            .lines()
+            .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+            .filter_map(|l| {
+                let mut columns = l.split_whitespace();
+                let rule = columns.next()?;
+                let level = if columns.next() == Some("notice") {
+                    Level::Notice
+                } else {
+                    Level::Error
+                };
+                Some((rule, level))
+            })
+            .collect()
+    });
+    &PRESET
 }
 
 /// The name a plugin goes by in Oxlint's configuration.
@@ -689,75 +712,13 @@ const fn plugin_display_name(plugin: &str) -> &str {
     }
 }
 
-/// One Biome rule and its Oxlint equivalent, from `biome-rules.tsv`.
-#[derive(Debug)]
-struct Biome {
-    group: &'static str,
-    name: &'static str,
-    recommended: bool,
-    domains: Vec<&'static str>,
-    oxlint: Option<&'static str>,
-    /// The Oxlint rule only approximates the Biome one.
-    inspired: bool,
-    /// The Oxlint rule's options (a JSON array) that match the Biome rule's defaults.
-    options: Option<&'static str>,
-}
-
-impl Biome {
-    /// Whether a group's switch moves this rule: no domain, or one of [`DOMAINS`], and not
-    /// `Project`.
-    fn grouped(&self) -> bool {
-        !self.domains.contains(&"Project")
-            && (self.domains.is_empty() || self.domains.iter().any(|d| DOMAINS.contains(d)))
-    }
-
-    /// `level`, at most a note when the Oxlint rule only approximates this one.
-    const fn capped(&self, level: Level) -> Level {
-        match level {
-            Level::Error if self.inspired => Level::Notice,
-            other => other,
-        }
-    }
-}
-
-/// The mapping table.
-fn biome() -> &'static [Biome] {
-    static TABLE: LazyLock<Vec<Biome>> = LazyLock::new(|| {
-        include_str!("biome-rules.tsv")
-            .lines()
-            .filter(|l| !l.starts_with('#') && !l.is_empty())
-            .filter_map(|l| {
-                let mut cols = l.split('\t');
-                let (group, name) = cols.next()?.split_once('/')?;
-                let recommended = cols.next()? == "recommended";
-                let domains = match cols.next()? {
-                    "-" => vec![],
-                    d => d.split(',').collect(),
-                };
-                let oxlint = Some(cols.next()?).filter(|o| *o != "-");
-                let inspired = cols.next()? == "inspired";
-                let options = Some(cols.next()?).filter(|o| *o != "-");
-                Some(Biome {
-                    group,
-                    name,
-                    recommended,
-                    domains,
-                    oxlint,
-                    inspired,
-                    options,
-                })
-            })
-            .collect()
-    });
-    &TABLE
-}
-
 /// One rule in Oxlint's registry.
 #[derive(Debug)]
 struct Known {
     /// As a finding names it: `jsx-a11y`, not `jsx_a11y`.
     plugin: &'static str,
     name: &'static str,
+    category: &'static str,
     type_aware: bool,
 }
 
@@ -769,6 +730,7 @@ fn oxlint() -> &'static [Known] {
             .map(|r| Known {
                 plugin: plugin_display_name(r.plugin_name()),
                 name: r.name(),
+                category: r.category().as_str(),
                 type_aware: r.is_tsgolint_rule(),
             })
             .collect()
@@ -784,22 +746,31 @@ mod tests {
         lint_text(Path::new("src/app.tsx"), text, fix, true, rules).unwrap()
     }
 
+    fn config(categories: &[(&str, Level)], rules: &[(&str, Value)]) -> Config {
+        Config {
+            categories: categories
+                .iter()
+                .map(|(k, l)| ((*k).to_owned(), *l))
+                .collect(),
+            rules: rules
+                .iter()
+                .map(|(k, v)| ((*k).to_owned(), v.clone()))
+                .collect(),
+            groups: None,
+        }
+    }
+
     #[test]
-    fn every_mapped_rule_is_in_oxlint() {
-        for b in biome() {
-            if let Some(rule) = b.oxlint {
-                let (plugin, name) = rule.split_once('/').unwrap();
-                assert!(
-                    oxlint()
-                        .iter()
-                        .any(|r| r.plugin == plugin && r.name == name),
-                    "{}/{} -> {rule}",
-                    b.group,
-                    b.name
-                );
-            }
+    fn every_preset_rule_is_in_oxlint() {
+        for (rule, _) in preset() {
+            let (plugin, name) = rule.split_once('/').unwrap();
+            let known = oxlint()
+                .iter()
+                .find(|r| r.plugin == plugin && r.name == name);
+            assert!(known.is_some_and(|r| !r.type_aware), "{rule}");
         }
         assert!(Rules::default().levels.len() > 150);
+        assert!(Rules::default().is_notice("react/exhaustive-deps"));
     }
 
     #[test]
@@ -836,60 +807,80 @@ mod tests {
     }
 
     #[test]
-    fn a_rule_turned_off_does_not_run_and_a_group_turns_rules_on() {
+    fn a_rule_turned_off_does_not_run_and_a_category_turns_rules_on() {
         let text = "debugger;\n";
         assert_eq!(lint(text, false, &Rules::default()).findings.len(), 1);
-        for name in ["suspicious/noDebugger", "eslint/no-debugger"] {
-            let off = Config {
-                rules: [(name.into(), Level::Off)].into(),
-                ..Config::default()
-            };
-            assert_eq!(lint(text, false, &Rules::of(&off).unwrap()).findings, []);
-        }
-        let notice = Config {
-            rules: [("lint/suspicious/noDebugger".into(), Level::Notice)].into(),
-            ..Config::default()
-        };
+        let off = config(&[], &[("eslint/no-debugger", json!("off"))]);
+        assert_eq!(lint(text, false, &Rules::of(&off).unwrap()).findings, []);
+        let notice = config(&[], &[("eslint/no-debugger", json!("notice"))]);
         assert!(lint(text, false, &Rules::of(&notice).unwrap()).findings[0].notice);
-        // `noMagicNumbers` is in Biome's `style` and not recommended: on with the group only.
+        // `no-magic-numbers` is in Oxlint's `style` and not in the preset: on with the category.
         let magic = "export const f = (x: number) => x * 37;\n";
-        let rule = "eslint/no-magic-numbers";
-        let has = |r: &Rules| {
+        let has = |r: &Rules, rule: &str| {
             lint(magic, false, r)
                 .findings
                 .iter()
                 .any(|f| f.rule == rule)
         };
-        assert!(!has(&Rules::default()));
-        let style = Config {
-            groups: [("style".into(), Level::Error)].into(),
-            ..Config::default()
-        };
-        assert!(has(&Rules::of(&style).unwrap()));
+        assert!(!has(&Rules::default(), "eslint/no-magic-numbers"));
+        let style = config(&[("style", Level::Error)], &[]);
+        assert!(has(&Rules::of(&style).unwrap(), "eslint/no-magic-numbers"));
     }
 
     #[test]
-    fn an_unknown_rule_or_group_is_reported() {
-        let error = |rules: &[(&str, Level)], groups: &[(&str, Level)]| {
-            let config = Config {
-                rules: rules.iter().map(|(k, l)| ((*k).to_owned(), *l)).collect(),
-                groups: groups.iter().map(|(k, l)| ((*k).to_owned(), *l)).collect(),
-            };
-            Rules::of(&config).unwrap_err().to_string()
+    fn a_rule_takes_its_options() {
+        let text = "export const f = (a: number, b: number, c: number) => a + b + c;\n";
+        let rule = "eslint/max-params";
+        let count = |max: u32| {
+            let rules = config(&[], &[(rule, json!(["error", { "max": max }]))]);
+            lint(text, false, &Rules::of(&rules).unwrap())
+                .findings
+                .iter()
+                .filter(|f| f.rule == rule)
+                .count()
         };
-        assert_eq!(
-            error(&[("suspicious/noVra", Level::Off)], &[]),
-            "rules.\"suspicious/noVra\": Biome has no rule `noVra` in `suspicious`"
-        );
-        assert_eq!(
-            error(&[("eslint/no-vra", Level::Off)], &[]),
-            "rules.\"eslint/no-vra\": Oxlint has no rule `no-vra` in `eslint`"
+        assert_eq!((count(2), count(3)), (1, 0));
+    }
+
+    #[test]
+    fn an_unknown_rule_or_category_is_reported() {
+        let error = |config: &Config| Rules::of(config).unwrap_err();
+        let old_name = error(&config(&[], &[("suspicious/noDebugger", json!("off"))]));
+        assert_eq!(old_name.name, "suspicious/noDebugger");
+        assert!(
+            old_name.message.starts_with(
+                "rules: expected an Oxlint rule by the name a finding gives it \
+                 (`eslint/no-debugger`), got \"suspicious/noDebugger\"; the plugin is one of "
+            ),
+            "{old_name}"
         );
         assert!(
-            error(&[("a11y/noSvgWithoutTitle", Level::Error)], &[])
-                .contains("no Oxlint equivalent")
+            error(&config(&[], &[("eslint/no-vra", json!("off"))]))
+                .message
+                .contains("got \"eslint/no-vra\"")
         );
-        assert!(error(&[], &[("stlye", Level::Error)]).starts_with("groups.stlye: no such group"),);
+        assert_eq!(
+            error(&config(&[], &[("eslint/no-debugger", json!("warn"))])).message,
+            "rules: \"eslint/no-debugger\": expected error, notice or off, got \"warn\""
+        );
+        assert!(
+            error(&config(
+                &[],
+                &[("typescript/no-floating-promises", json!("error"))]
+            ))
+            .message
+            .contains("needs type information")
+        );
+        assert_eq!(
+            error(&config(&[("stlye", Level::Error)], &[])).message,
+            "categories: expected one of correctness, suspicious, pedantic, perf, style \
+             or restriction, got \"stlye\""
+        );
+        let groups = Config {
+            groups: Some(json!({ "style": "error" })),
+            ..Config::default()
+        };
+        assert!(error(&groups).message.starts_with("groups: no such key"));
     }
 
     #[test]

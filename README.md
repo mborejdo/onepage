@@ -67,11 +67,11 @@ asked (reason on stderr).
 ## Lint
 
 Oxc's linter (Oxlint's rules) and formatter, in process, over the page's own `.ts`/`.tsx` files
-(not `vendor`, not `[wasm] glue`). The preset is the rule set onepage ran under Biome - Biome's
-`recommended`, no `nursery`, `react` and `test` domains, `project` off - with each rule replaced by
-its Oxlint equivalent (the table is
-[`packages/pagekit/src/biome-rules.tsv`](packages/pagekit/src/biome-rules.tsv)), plus
-`react/rules-of-hooks`. Classic JSX under Preact's `h` and `Fragment`.
+(not `vendor`, not `[wasm] glue`). The preset is onepage's own list of Oxlint rules, one per
+line in [`packages/pagekit/src/lint-preset.txt`](packages/pagekit/src/lint-preset.txt): 166
+rules, most of them `correctness`, from the `eslint`, `typescript`, `unicorn`, `oxc`, `react`,
+`jsx-a11y`, `jest` and `next` plugins, `react/rules-of-hooks` among them. Classic JSX under
+Preact's `h` and `Fragment`.
 
 ```text
 src/app.tsx:10: error: react/button-has-type: `button` elements must have a valid `type` attribute.
@@ -151,21 +151,20 @@ accent = "#b4a9f5"
 [theme.fonts]                # sans, mono, display
 mono = "JetBrains Mono"
 
-[lint]                       # levels error, notice, off: per group, then per rule
-groups = { style = "error", complexity = "error" }
-rules = { "eslint/no-console" = "notice", "style/noTernary" = "off" }
+[lint]                       # levels error, notice, off: per category, then per rule
+categories = { suspicious = "error", perf = "error" }
+rules = { "eslint/no-console" = "notice", "eslint/no-nested-ternary" = "off" }
+
+[lint.rules]                 # the same, one per line; options as Oxlint takes them
+"eslint/max-params" = ["error", { max = 4 }]
 ```
 
-A rule is an Oxlint rule as a finding names it (`<plugin>/<name>`: `eslint/no-console`,
-`jsx-a11y/alt-text`), or a Biome rule by `<group>/<name>`, which means its Oxlint equivalent in
-the table (`lint/` in front is allowed). A group is one of Biome's (`a11y`, `complexity`,
-`correctness`, `performance`, `security`, `style`, `suspicious`): the Oxlint equivalents of its
-rules in the domains above, not deprecated or `nursery` ones. Where the Oxlint rule only
-approximates the Biome one (`inspired` in the table, e.g. `unicorn/filename-case` for
-`useFilenamingConvention`), a group or Biome name turns it on as a note at most; name the Oxlint
-rule to make it an error. Biome names whose rule has no equivalent may be turned `off` (a no-op);
-turning one on is an error, as is an unknown name, a `nursery` group, a rule that needs a module
-graph or one that needs type information.
+A rule is named as a finding names it, `<plugin>/<name>` (`eslint/no-console`,
+`jsx-a11y/alt-text`); with options, the value is Oxlint's array, the level first. A category is
+one of Oxlint's (`correctness`, `suspicious`, `pedantic`, `perf`, `style`, `restriction`): its
+rules in the preset's plugins, not the type-aware ones. An unknown name, a `nursery` category
+(turn a nursery rule on by name), a rule that needs type information, or a name from another
+linter is an error at its line in `onepage.toml`.
 
 The policy is the first element of `<head>`:
 

@@ -43,7 +43,7 @@ pub struct Config {
     pub vendor: Option<PathBuf>,
     /// The import map: a bare specifier or package name to a package folder or a file.
     pub imports: BTreeMap<String, PathBuf>,
-    /// Lint rules moved by group and by name, for the page's own sources.
+    /// Lint rules moved by Oxlint category and by name, for the page's own sources.
     pub lint: pagekit::lint::Config,
     /// The type checks' ratchet: per code, how many findings the page may have
     /// (`TS2322 = 3`). Without it, every type finding is a note.
@@ -89,13 +89,16 @@ impl Config {
                 path.display()
             );
         }
-        config.rules().with_context(|| path.display().to_string())?;
+        if let Err(e) = config.rules() {
+            let line = lint_line(&text, &e.name);
+            return Err(Finding::new(PROJECT_FILE, line, format!("[lint] {e}")).into());
+        }
         Ok(config)
     }
 
-    /// The rules of `[lint]`: an unknown group or rule is an error that names it.
-    pub fn rules(&self) -> Result<pagekit::lint::Rules> {
-        pagekit::lint::Rules::of(&self.lint).context("[lint]")
+    /// The rules of `[lint]`: an unknown category or rule is an error that names it.
+    pub fn rules(&self) -> Result<pagekit::lint::Rules, pagekit::lint::ConfigError> {
+        pagekit::lint::Rules::of(&self.lint)
     }
 
     /// With a `[theme]`, hold the changed palettes to the token file's contrast duties
@@ -195,6 +198,33 @@ fn line_of(text: &str, table: &str, key: &str) -> usize {
     inside.unwrap_or(0)
 }
 
+/// The 1-based line of the `[lint]` entry about `name` (a rule, a category or a key), else the
+/// `[lint]` line, else 0.
+fn lint_line(text: &str, name: &str) -> usize {
+    let mut inside = None;
+    for (i, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            if inside.is_some() && !line.starts_with("[lint.") {
+                break;
+            }
+            if line.starts_with("[lint]") || line.starts_with("[lint.") {
+                inside = inside.or(Some(i + 1));
+            }
+        } else if inside.is_some()
+            && (line.contains(&format!("\"{name}\""))
+                || line.split(['{', ',']).any(|part| {
+                    part.trim_start()
+                        .strip_prefix(name)
+                        .is_some_and(|rest| rest.trim_start().starts_with('='))
+                }))
+        {
+            return i + 1;
+        }
+    }
+    inside.unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,19 +246,30 @@ mod tests {
     }
 
     #[test]
-    fn lint_moves_groups_and_rules_and_names_an_unknown_one() {
+    fn lint_moves_categories_and_rules_and_names_an_unknown_one() {
         let config: Config = toml::from_str(
-            "[lint]\ngroups = { style = \"error\" }\nrules = { \"style/noTernary\" = \"off\" }\n",
+            "[lint]\ncategories = { style = \"error\" }\n\
+             rules = { \"eslint/no-ternary\" = \"off\", \"eslint/max-params\" = [\"error\", { max = 4 }] }\n",
         )
         .unwrap();
         assert!(config.rules().is_ok());
         let config: Config =
-            toml::from_str("[lint]\nrules = { \"style/noTernery\" = \"off\" }\n").unwrap();
-        let error = format!("{:#}", config.rules().unwrap_err());
-        assert!(error.contains("no rule `noTernery` in `style`"), "{error}");
-        assert!(
-            toml::from_str::<Config>("[lint]\nrules = { \"style/noTernary\" = \"warn\" }").is_err()
-        );
+            toml::from_str("[lint]\nrules = { \"style/noTernary\" = \"off\" }\n").unwrap();
+        let error = config.rules().unwrap_err();
+        assert_eq!(error.name, "style/noTernary");
+        assert!(error.message.contains("expected an Oxlint rule"), "{error}");
+        assert!(toml::from_str::<Config>("[lint]\ncategories = { style = \"warn\" }").is_err());
+    }
+
+    #[test]
+    fn a_lint_entry_is_found_at_its_line() {
+        let text = "entry = \"src/app.tsx\"\n[lint]\ncategories = { style = \"error\" }\n\
+                    [lint.rules]\n\"eslint/no-vra\" = \"off\"\n[imports]\nx = \"y\"\n";
+        assert_eq!(lint_line(text, "eslint/no-vra"), 5);
+        assert_eq!(lint_line(text, "categories"), 3);
+        assert_eq!(lint_line(text, "style"), 3);
+        assert_eq!(lint_line(text, "x"), 2);
+        assert_eq!(lint_line("", "x"), 0);
     }
 
     #[test]

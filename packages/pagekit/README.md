@@ -17,7 +17,7 @@ std::fs::write("index.html", built.html)?;
 | `tokens` | a design-token file to CSS variables and utility colour names, plus WCAG contrast |
 | `html` | fills the `<!--css-->`/`<!--js-->` slots, title and icon, and adds a CSP pinning the inline script and style by sha256 |
 | `check` | fails on what would be a blank page; each `Finding` has a file and line |
-| `lint` | [Oxc](https://oxc.rs)'s linter (Oxlint's rules) and formatter over the page's sources (fixes on request) and, read-only, its packages; `Rules` reads `[lint]`, in Oxlint's or Biome's rule names |
+| `lint` | [Oxc](https://oxc.rs)'s linter (Oxlint's rules) and formatter over the page's sources (fixes on request) and, read-only, its packages; `Rules` reads `[lint]`: Oxlint categories and rule names |
 | `test` | (feature `test`) runs `*.test.ts` in [boa](https://boajs.dev) |
 
 Details live in the [onepage README](../../README.md) and the rustdoc. The vendored Preact

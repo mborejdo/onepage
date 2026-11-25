@@ -50,6 +50,10 @@ Examples:
   onepage lint hello                one `file:line: error: rule: message` line per finding, on stdout
   onepage lint hello --fix          the safe fixes and the formatter, written back
 
+The rules are onepage's preset of Oxlint rules. A `[lint]` table in onepage.toml moves them by
+Oxlint category and by the name a finding gives a rule, to error, notice or off:
+categories = { style = \"error\" }, rules = { \"eslint/no-console\" = \"off\" }.
+
 Exit codes:
   0  no errors (notes only)
   1  at least one error

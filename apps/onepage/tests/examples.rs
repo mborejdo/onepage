@@ -354,6 +354,28 @@ fn a_low_contrast_theme_fails_the_build_at_its_line() {
 }
 
 #[test]
+fn a_lint_name_oxlint_does_not_have_fails_at_its_line() {
+    let dir = page(
+        "lint-name",
+        &[(
+            "onepage.toml",
+            "title = \"x\"\n\n[lint.rules]\n\"eslint/no-console\" = \"off\"\n\
+             \"style/noTernary\" = \"off\"\n",
+        )],
+    );
+    let error = onepage::lint(&dir, false).unwrap_err();
+    let (line, code) = onepage::report(&error);
+    assert_eq!(code, 1);
+    assert!(
+        line.starts_with(
+            "onepage.toml:5: error: [lint] rules: expected an Oxlint rule by the name a finding \
+             gives it (`eslint/no-debugger`), got \"style/noTernary\"; the plugin is one of "
+        ),
+        "{line}"
+    );
+}
+
+#[test]
 fn lint_reports_fixes_in_place_and_fails_the_build() {
     let dir = page(
         "lint",
@@ -361,7 +383,7 @@ fn lint_reports_fixes_in_place_and_fails_the_build() {
             (
                 "onepage.toml",
                 "[imports]\nkit = \"../lint-kit/index.ts\"\n\
-                 [lint]\nrules = { \"suspicious/noDebugger\" = \"off\" }\n",
+                 [lint]\nrules = { \"eslint/no-debugger\" = \"off\" }\n",
             ),
             ("../lint-kit/index.ts", "export var k = 1;\ndebugger;\n"),
             (

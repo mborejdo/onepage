@@ -12,12 +12,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   `import.meta`) run on Oxc's semantic model. MSRV 1.97 (Oxc's).
 - Lint and format on Oxc in place of Biome: Oxlint's rules and Oxc's (Prettier-compatible)
   formatter, in process, from git (tag `oxlint_v1.93.0`, the one whose Oxc crates are the
-  0.158.0 rolldown links; `[patch.crates-io]` keeps one copy of Oxc). The preset is Biome's
-  recommended set mapped rule by rule to Oxlint (`biome-rules.tsv`), plus
-  `react/rules-of-hooks`. Findings name Oxlint rules (`eslint/no-debugger`); the formatter's
-  rule is `format`, a syntax error's `parse`. `[lint]` takes Oxlint names and, as before, Biome
-  groups and rule names; an approximate (`inspired`) equivalent is a note at most. Only the
-  errors' fixes are applied.
+  0.158.0 rolldown links; `[patch.crates-io]` keeps one copy of Oxc). The preset is onepage's
+  own list of 166 Oxlint rules (`packages/pagekit/src/lint-preset.txt`). Findings name Oxlint
+  rules (`eslint/no-debugger`); the formatter's rule is `format`, a syntax error's `parse`. Only
+  the errors' fixes are applied.
+- Breaking: `[lint]` takes Oxlint names only. `groups` is gone; `categories` moves Oxlint's
+  categories (`correctness`, `suspicious`, `pedantic`, `perf`, `style`, `restriction`) over the
+  preset's plugins. `rules` names a rule as a finding does and may give its options as Oxlint
+  takes them (`"eslint/max-params" = ["error", { max = 4 }]`). Any other name, a `nursery`
+  category or a `groups` key is a `onepage.toml:line: error: [lint] ...` finding (exit 1).
 - MSRV 1.100 (tsrs, on by default); `--no-default-features` builds without type checks on 1.97.
 - `homepage` dropped from the manifests: it repeated `repository` (Cargo 1.100 warns).
 - `pagekit::lint::lint_text` returns a `Result` (the linter's configuration can fail).
@@ -42,7 +45,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   read-only, as notes.
 - `onepage lint --fix`: safe fixes and formatter (two spaces, 100 columns, double quotes,
   trailing commas, semicolons) written in place.
-- `[lint]`: `groups` and `rules` at `error`, `notice` or `off`; unknown names are errors.
+- `[lint]`: `categories` and `rules` at `error`, `notice` or `off`; unknown names are errors.
 - `pagekit::lint` as a library (`page`, `lint_text`, `Rules`, `Report`).
 - `tokens = "tokens.toml"`: `[light]`/`[dark]` nine-colour palettes, `[fonts]`, `[sizes]`,
   `[series]`, `[radii]`, `[space]` as CSS variables (light on `:root`, dark under
