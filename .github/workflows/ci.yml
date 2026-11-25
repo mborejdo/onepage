@@ -52,7 +52,7 @@ jobs:
       - name: Lint the example pages
         run: for p in examples/*; do cargo run --release --locked -- lint "$p" || exit 1; done
       - name: Type-check the example pages
-        run: for p in examples/*; do cargo run --release --locked --features types -- types "$p" || exit 1; done
+        run: for p in examples/*; do cargo run --release --locked -- types "$p" || exit 1; done
       - name: Build the example pages
         run: |
           cargo run --release --locked --all-features -- test examples/hello

@@ -16,11 +16,11 @@ categories = ["command-line-utilities", "web-programming"]
 workspace = true
 
 [features]
-default = []
+default = ["types"]
 # `onepage test`: run the page's `src/**/*.test.ts` in boa (an embedded JavaScript engine).
 test = ["pagekit/test"]
 # `onepage types`, and the type checks in `lint` and `build`: tsrs, the TypeScript 7 checker in
-# Rust (needs Rust 1.100).
+# Rust (needs Rust 1.100). On by default; `--no-default-features` builds without it on 1.97.
 types = ["pagekit/types"]
 
 [dependencies]

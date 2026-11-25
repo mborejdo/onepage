@@ -98,11 +98,7 @@ pub fn page(page: &Page, backlog: Option<&Backlog>) -> Result<Report> {
     let imports = page.resolver();
     // The page's bare imports, then every vendored package by name: a package's typings
     // import its dependencies by their bare names too.
-    let vendored = imports
-        .vendor
-        .as_deref()
-        .map(packages_in)
-        .unwrap_or_default();
+    let vendored = imports.vendor.as_deref().map_or_default(packages_in);
     for spec in bare_imports(&own)?.into_iter().chain(vendored) {
         if paths.contains_key(&spec) {
             continue;

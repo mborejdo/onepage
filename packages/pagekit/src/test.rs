@@ -74,8 +74,7 @@ pub fn run(page: &Page) -> Result<Vec<Outcome>> {
         let result = eval(RUN)?;
         let text = result
             .as_string()
-            .map(|s| s.to_std_string_escaped())
-            .unwrap_or_default();
+            .map_or_default(|s| s.to_std_string_escaped());
         let lines = text.lines().map(str::to_owned).collect();
         out.push(Outcome { file, lines });
     }

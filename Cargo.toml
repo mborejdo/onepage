@@ -9,9 +9,9 @@ default-members = ["apps/onepage", "packages/pagekit"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-# The highest floor of the default features' dependencies (Oxc). The `types` feature needs
-# 1.100 (tsrs), the toolchain in rust-toolchain.toml.
-rust-version = "1.97"
+# The highest floor of the default features' dependencies (tsrs, behind `types`). Without
+# `types` (`--no-default-features`) Oxc's 1.97 is enough.
+rust-version = "1.100"
 authors = ["Michael Borejdo <mborejdo@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mborejdo/onepage"

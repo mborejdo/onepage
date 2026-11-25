@@ -7,9 +7,9 @@ file, so it opens from disk, a static host or an email attachment. Pure Rust, no
 ## Install
 
 ```sh
-cargo install --path apps/onepage
-cargo install --path apps/onepage --features test   # adds `onepage test` (embeds boa)
-cargo install --path apps/onepage --features types  # adds `onepage types` (embeds tsrs, Rust 1.100+)
+cargo install --path apps/onepage                          # with `onepage types` (embeds tsrs, Rust 1.100+)
+cargo install --path apps/onepage --features test          # adds `onepage test` (embeds boa)
+cargo install --path apps/onepage --no-default-features    # without type checks (Rust 1.97+, smaller)
 ```
 
 Not on crates.io: Oxc ships its linter and formatter crates only as a git tag, which

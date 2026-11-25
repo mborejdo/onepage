@@ -18,7 +18,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   rule is `format`, a syntax error's `parse`. `[lint]` takes Oxlint names and, as before, Biome
   groups and rule names; an approximate (`inspired`) equivalent is a note at most. Only the
   errors' fixes are applied.
-- The toolchain is Rust 1.100 (tsrs needs it); the default features still build on 1.97.
+- MSRV 1.100 (tsrs, on by default); `--no-default-features` builds without type checks on 1.97.
 - `homepage` dropped from the manifests: it repeated `repository` (Cargo 1.100 warns).
 - `pagekit::lint::lint_text` returns a `Result` (the linter's configuration can fail).
 - `pagekit::check` takes an Oxc `Semantic`; `pagekit::bundle::Bundled::modules` is in execution
@@ -26,7 +26,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Added
 
-- `onepage types [DIR]` (cargo feature `types`): tsrs 7.1.0-beta.tsrs5, the TypeScript 7 checker
+- `onepage types [DIR]` (cargo feature `types`, on by default): tsrs 7.1.0-beta.tsrs5, the TypeScript 7 checker
   in Rust, in process over the page's own sources: tsc's errors and six type-aware rules
   (`no-floating-promises`, `no-misused-promises`, `await-thenable`, `unbound-method`,
   `switch-exhaustiveness-check`, `restrict-template-expressions`). The tsconfig is in memory;
