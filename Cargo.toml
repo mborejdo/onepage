@@ -1,5 +1,5 @@
-# onepage: a Preact TSX page in, one self-contained HTML file out. swc bundles the module graph,
-# encre-css writes the utility sheet, Biome lints and formats the source, and a strict
+# onepage: a Preact TSX page in, one self-contained HTML file out. rolldown bundles the module
+# graph, encre-css writes the utility sheet, Biome lints and formats the source, and a strict
 # Content-Security-Policy pins the one inline script by its hash. No Node, no npm.
 [workspace]
 resolver = "3"
@@ -9,8 +9,8 @@ default-members = ["apps/onepage", "packages/pagekit"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-# The highest floor any dependency declares (swc).
-rust-version = "1.91"
+# The highest floor any dependency declares (Oxc).
+rust-version = "1.97"
 authors = ["Michael Borejdo <mborejdo@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mborejdo/onepage"
@@ -28,20 +28,17 @@ serde_json = "1"
 # The CSP hash of the inline script and style.
 sha2 = "0.11"
 base64 = "0.23"
-# TypeScript, JSX, the module graph and the minifier: one parser for all of it.
-swc_core = { version = "84", features = [
-    "common",
-    "ecma_ast",
-    "ecma_visit",
-    "ecma_parser",
-    "ecma_parser_typescript",
-    "ecma_codegen",
-    "ecma_transforms_react",
-    "ecma_transforms_typescript",
-    "ecma_minifier",
-    "ecma_loader_node",
-    "bundler",
-] }
+# The module graph: rolldown links it, Oxc strips TypeScript, compiles JSX and minifies. Pre-1.0
+# (Oxc) and fast-moving (rolldown): exact pins, bumped together - rolldown names the Oxc minor.
+rolldown = "=1.3.2"
+rolldown_common = "=1.3.2"
+oxc_allocator = "=0.158.0"
+oxc_ast = "=0.158.0"
+oxc_parser = "=0.158.0"
+oxc_semantic = "=0.158.0"
+oxc_span = "=0.158.0"
+# rolldown's API is async; one current-thread runtime per bundle drives it.
+tokio = { version = "1", default-features = false, features = ["rt"] }
 # Tailwind-style utilities from the class names the source uses.
 encre-css = "0.21"
 # The lint and the formatter, in process. From git because Biome does not publish these crates;
@@ -81,7 +78,7 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
-# Unavoidable with many transitive deps (swc alone pulls in several versions of some).
+# Unavoidable with many transitive deps (rolldown and Biome pull in several versions of some).
 multiple_crate_versions = "allow"
 module_name_repetitions = "allow"
 # No required `# Errors` / `# Panics` sections, no doc-paragraph length limit.

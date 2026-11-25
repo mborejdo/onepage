@@ -4,6 +4,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## Unreleased
 
+### Changed
+
+- The bundler is rolldown (Oxc inside) in place of swc: Oxc strips TypeScript, compiles JSX and
+  minifies; the page is one IIFE over the Preact globals. Side-effect-free vendored packages are
+  tree-shaken, so their pages get smaller. The checks (`h`/`Fragment` imports, undeclared names,
+  `import.meta`) run on Oxc's semantic model. MSRV 1.97 (Oxc's).
+- `pagekit::check` takes an Oxc `Semantic`; `pagekit::bundle::Bundled::modules` is in execution
+  order and leaves out tree-shaken modules.
+
 ### Added
 
 - `onepage lint [DIR]`: Biome's `recommended` lint and formatter over the page's own sources

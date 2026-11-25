@@ -1,14 +1,12 @@
 //! The checks for mistakes that would otherwise build clean and fail silently in the
-//! browser. Each runs on one module's syntax tree while it is bundled.
+//! browser. Each runs on one module's semantic model (Oxc) before it is bundled.
 
 use std::{collections::HashSet, sync::LazyLock};
 
-use swc_core::common::{Mark, Span};
-use swc_core::ecma::ast::{
-    Constructor, Function, GetterProp, Ident, ImportDecl, ImportSpecifier, JSXElement, JSXFragment,
-    MetaPropExpr, MetaPropKind, Module, NamedExport, SetterProp,
-};
-use swc_core::ecma::visit::{Visit, VisitWith};
+use oxc_ast::AstKind;
+use oxc_ast::ast::{ImportDeclarationSpecifier, ImportOrExportKind};
+use oxc_semantic::Semantic;
+use oxc_span::{GetSpan, Span};
 
 /// Browser and ECMAScript globals a page may read without declaring them.
 static GLOBALS: LazyLock<HashSet<&str>> =
@@ -30,44 +28,43 @@ fn is_global(name: &str, wasm: bool, extra: &[&str]) -> bool {
 /// A JSX file that does not import its factory: classic JSX compiles `<div/>` to
 /// `h("div")`, so the page throws on first render and paints nothing.
 #[must_use]
-pub fn jsx_factory(module: &Module) -> Option<(Span, String)> {
-    #[derive(Default)]
-    struct Jsx {
-        element: Option<Span>,
-        fragment: Option<Span>,
-        imported: HashSet<String>,
-    }
-    impl Visit for Jsx {
-        fn visit_import_decl(&mut self, n: &ImportDecl) {
-            for s in n.specifiers.iter().filter(|_| !n.type_only) {
-                match s {
-                    ImportSpecifier::Named(s) if !s.is_type_only => {
-                        self.imported.insert(s.local.sym.to_string());
-                    },
-                    _ => {},
+pub fn jsx_factory(semantic: &Semantic<'_>) -> Option<(Span, String)> {
+    let mut element: Option<Span> = None;
+    let mut fragment: Option<Span> = None;
+    let mut imported = HashSet::new();
+    let earliest = |slot: &mut Option<Span>, span: Span| {
+        if slot.is_none_or(|s| span.start < s.start) {
+            *slot = Some(span);
+        }
+    };
+    for node in semantic.nodes() {
+        match node.kind() {
+            AstKind::ImportDeclaration(decl) if decl.import_kind == ImportOrExportKind::Value => {
+                for s in decl.specifiers.iter().flatten() {
+                    if let ImportDeclarationSpecifier::ImportSpecifier(s) = s
+                        && s.import_kind == ImportOrExportKind::Value
+                    {
+                        imported.insert(s.local.name.as_str());
+                    }
                 }
-            }
-        }
-        fn visit_jsx_element(&mut self, n: &JSXElement) {
-            self.element.get_or_insert(n.span);
-            n.visit_children_with(self);
-        }
-        fn visit_jsx_fragment(&mut self, n: &JSXFragment) {
-            self.fragment.get_or_insert(n.span);
-            n.visit_children_with(self);
+            },
+            AstKind::JSXElement(e) => earliest(&mut element, e.span),
+            AstKind::JSXFragment(f) => earliest(&mut fragment, f.span),
+            _ => {},
         }
     }
-    let mut v = Jsx::default();
-    module.visit_with(&mut v);
-    let first = v.element.or(v.fragment)?;
-    if !v.imported.contains("h") {
+    let first = match (element, fragment) {
+        (Some(e), Some(f)) => Some(if f.start < e.start { f } else { e }),
+        (e, f) => e.or(f),
+    }?;
+    if !imported.contains("h") {
         return Some((
             first,
             "uses JSX but does not import `h`; add `import { h } from \"preact\";`".into(),
         ));
     }
-    match v.fragment {
-        Some(span) if !v.imported.contains("Fragment") => Some((
+    match fragment {
+        Some(span) if !imported.contains("Fragment") => Some((
             span,
             "uses `<>` but does not import `Fragment`; add it to the `preact` import".into(),
         )),
@@ -77,90 +74,59 @@ pub fn jsx_factory(module: &Module) -> Option<(Span, String)> {
 
 /// `import.meta` exists in ES modules only; the page is one classic script.
 #[must_use]
-pub fn import_meta(module: &Module) -> Option<Span> {
-    struct Meta(Option<Span>);
-    impl Visit for Meta {
-        fn visit_meta_prop_expr(&mut self, n: &MetaPropExpr) {
-            if n.kind == MetaPropKind::ImportMeta {
-                self.0.get_or_insert(n.span);
-            }
-        }
-    }
-    let mut v = Meta(None);
-    module.visit_with(&mut v);
-    v.0
+pub fn import_meta(semantic: &Semantic<'_>) -> Option<Span> {
+    semantic
+        .nodes()
+        .iter()
+        .filter_map(|n| match n.kind() {
+            AstKind::ImportMeta(m) => Some(m.span),
+            _ => None,
+        })
+        .min_by_key(|s| s.start)
 }
 
-/// The first name read but never declared, imported or a known global. Runs after the
-/// JSX and TypeScript transforms, so types are gone and JSX is `h(...)`.
+/// The first name read but never declared, imported or a known global. Types do not count:
+/// they are stripped, and so is a `typeof x` in a type.
 #[must_use]
-pub fn undeclared(
-    module: &Module,
-    unresolved: Mark,
-    wasm: bool,
-    extra: &[&str],
-) -> Option<(Span, String)> {
-    struct Undef<'a> {
-        unresolved: Mark,
-        wasm: bool,
-        extra: &'a [&'a str],
-        depth: usize,
-        found: Option<(Span, String)>,
-    }
-    impl Undef<'_> {
-        fn nested<N: VisitWith<Self>>(&mut self, n: &N) {
-            self.depth += 1;
-            n.visit_children_with(self);
-            self.depth -= 1;
+pub fn undeclared(semantic: &Semantic<'_>, wasm: bool, extra: &[&str]) -> Option<(Span, String)> {
+    let scoping = semantic.scoping();
+    let nodes = semantic.nodes();
+    let mut found: Option<(Span, &str)> = None;
+    for (name, references) in scoping.root_unresolved_references() {
+        let name: &str = name;
+        if is_global(name, wasm, extra) {
+            continue;
         }
-    }
-    impl Visit for Undef<'_> {
-        // `export { a as b }`: `b` is a name in the export map, not a reference.
-        fn visit_named_export(&mut self, n: &NamedExport) {
-            if n.src.is_none() {
-                for spec in &n.specifiers {
-                    if let swc_core::ecma::ast::ExportSpecifier::Named(s) = spec {
-                        s.orig.visit_with(self);
-                    }
-                }
+        for &id in references {
+            let reference = scoping.get_reference(id);
+            let flags = reference.flags();
+            if !flags.is_value() || flags.is_value_as_type() {
+                continue;
             }
-        }
-        // Inside a non-arrow function, `arguments` is bound by the language.
-        fn visit_function(&mut self, n: &Function) {
-            self.nested(n);
-        }
-        fn visit_constructor(&mut self, n: &Constructor) {
-            self.nested(n);
-        }
-        fn visit_getter_prop(&mut self, n: &GetterProp) {
-            self.nested(n);
-        }
-        fn visit_setter_prop(&mut self, n: &SetterProp) {
-            self.nested(n);
-        }
-        fn visit_ident(&mut self, id: &Ident) {
-            let name = id.sym.as_str();
-            if self.found.is_none()
-                && id.ctxt.outer() == self.unresolved
-                && !(name == "arguments" && self.depth > 0)
-                && !is_global(name, self.wasm, self.extra)
+            let node = reference.node_id();
+            let mut ancestors = nodes.ancestor_kinds(node);
+            if ancestors
+                .clone()
+                .any(|k| matches!(k, AstKind::TSTypeQuery(_) | AstKind::TSTypeReference(_)))
             {
-                let hint = if WASM_ONLY.contains(&name) || WASM_EXTRA.contains(&name) {
-                    "; add a [wasm] table to page.toml to allow it"
-                } else {
-                    "; declare or import it"
-                };
-                self.found = Some((id.span, format!("`{name}` is not defined{hint}")));
+                continue;
+            }
+            // Inside a non-arrow function, `arguments` is bound by the language.
+            if name == "arguments" && ancestors.any(|k| matches!(k, AstKind::Function(_))) {
+                continue;
+            }
+            let span = nodes.kind(node).span();
+            if found.is_none_or(|(s, _)| span.start < s.start) {
+                found = Some((span, name));
             }
         }
     }
-    let mut v = Undef {
-        unresolved,
-        wasm,
-        extra,
-        depth: 0,
-        found: None,
-    };
-    module.visit_with(&mut v);
-    v.found
+    found.map(|(span, name)| {
+        let hint = if WASM_ONLY.contains(&name) || WASM_EXTRA.contains(&name) {
+            "; add a [wasm] table to page.toml to allow it"
+        } else {
+            "; declare or import it"
+        };
+        (span, format!("`{name}` is not defined{hint}"))
+    })
 }

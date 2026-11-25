@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 /// What the top of `--help` says.
 const ABOUT: &str = "A Preact TSX page in, one self-contained HTML file out
 
-Bundled by swc, styled by encre-css, locked by a hash-pinned CSP. No Node, no npm.";
+Bundled by rolldown, styled by encre-css, locked by a hash-pinned CSP. No Node, no npm.";
 
 /// The end of the root `--help`: examples and exit codes.
 const ROOT_FOOTER: &str = "\

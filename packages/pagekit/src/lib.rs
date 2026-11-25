@@ -1,6 +1,6 @@
 //! A Preact TSX page to one self-contained HTML file.
 //!
-//! [`build`] bundles the page's module graph into one classic script ([`bundle`], swc), writes
+//! [`build`] bundles the page's module graph into one classic script ([`bundle`], rolldown), writes
 //! the utility sheet for the class names it uses ([`css`], encre-css), fills the shell's
 //! `<!--css-->` and `<!--js-->` slots and pins the result with a strict Content-Security-Policy
 //! ([`html`]). The checks in [`check`] fail the build on mistakes a browser would only show as

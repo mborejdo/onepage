@@ -206,7 +206,7 @@ fn condition(value: &Value) -> Option<String> {
 }
 
 /// `path` as a file: itself, with an extension, or its folder's `index`.
-fn probe(path: &Path) -> Option<PathBuf> {
+pub(crate) fn probe(path: &Path) -> Option<PathBuf> {
     if path.is_file() {
         return Some(path.to_path_buf());
     }

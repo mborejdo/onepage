@@ -195,9 +195,9 @@ runtime, so everything shares one Preact.
 ## How it works
 
 - **Lint** - Biome fixes and formats the sources; an error stops the build.
-- **Bundle** - swc runs the checks, strips TypeScript, compiles JSX and links everything into
-  one function-wrapped module; `import { ... } from "preact"` becomes `window.preact`. `build`
-  minifies and mangles.
+- **Bundle** - Oxc runs the checks on each module; rolldown strips TypeScript, compiles JSX,
+  links everything (tree-shaken) into one IIFE whose parameters are `window.preact`,
+  `window.preactHooks` and `window.preactJsx`. `build` minifies and mangles (Oxc's minifier).
 - **Style** - token variables, encre-css's preflight, package sheets, utilities for every class
   name in the sources, packages and shell, then `style`.
 - **Fill** - one `<style>` into `<!--css-->`, runtime and bundle as one `<script>` into

@@ -11,7 +11,7 @@ std::fs::write("index.html", built.html)?;
 
 | module | does |
 |---|---|
-| `bundle` | links the imports into one classic script with [swc](https://swc.rs): TypeScript stripped, JSX to `h`/`Fragment`, `preact*` from the inlined runtime, minified with `Page::minify` |
+| `bundle` | links the imports into one classic script with [rolldown](https://rolldown.rs) and [Oxc](https://oxc.rs): TypeScript stripped, JSX to `h`/`Fragment`, `preact*` from the inlined runtime, tree-shaken, minified with `Page::minify` |
 | `packages` | resolves bare imports via the import map and a vendor folder, by `package.json` |
 | `css` | [encre-css](https://crates.io/crates/encre-css) utilities for the class names in the sources, packages and shell, after the token variables and package sheets |
 | `tokens` | a design-token file to CSS variables and utility colour names, plus WCAG contrast |
