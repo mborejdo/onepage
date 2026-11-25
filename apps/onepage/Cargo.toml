@@ -7,7 +7,6 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-homepage.workspace = true
 publish.workspace = true
 readme = "../../README.md"
 keywords = ["preact", "bundler", "html", "static-site", "csp"]
@@ -20,6 +19,9 @@ workspace = true
 default = []
 # `onepage test`: run the page's `src/**/*.test.ts` in boa (an embedded JavaScript engine).
 test = ["pagekit/test"]
+# `onepage types`, and the type checks in `lint` and `build`: tsrs, the TypeScript 7 checker in
+# Rust (needs Rust 1.100).
+types = ["pagekit/types"]
 
 [dependencies]
 anyhow.workspace = true

@@ -45,6 +45,9 @@ pub struct Config {
     pub imports: BTreeMap<String, PathBuf>,
     /// Lint rules moved by group and by name, for the page's own sources.
     pub lint: pagekit::lint::Config,
+    /// The type checks' ratchet: per code, how many findings the page may have
+    /// (`TS2322 = 3`). Without it, every type finding is a note.
+    pub types: Option<BTreeMap<String, usize>>,
 }
 
 impl Default for Config {
@@ -64,6 +67,7 @@ impl Default for Config {
             vendor: None,
             imports: BTreeMap::new(),
             lint: pagekit::lint::Config::default(),
+            types: None,
         }
     }
 }

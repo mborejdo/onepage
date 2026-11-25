@@ -9,12 +9,12 @@ default-members = ["apps/onepage", "packages/pagekit"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-# The highest floor any dependency declares (Oxc).
+# The highest floor of the default features' dependencies (Oxc). The `types` feature needs
+# 1.100 (tsrs), the toolchain in rust-toolchain.toml.
 rust-version = "1.97"
 authors = ["Michael Borejdo <mborejdo@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mborejdo/onepage"
-homepage = "https://github.com/mborejdo/onepage"
 # Not on crates.io: Oxc's linter and formatter are git-only dependencies, which `cargo publish`
 # refuses.
 publish = false
@@ -52,6 +52,9 @@ oxc_diagnostics = "=0.158.0"
 rustc-hash = "2"
 # One file per core in the lint; already in the tree through Oxc.
 rayon = "1"
+# `onepage types`: tsrs, the TypeScript 7 checker ported to Rust, with its type-aware rules,
+# behind the off-by-default `types` feature. A beta: exact pin. Needs Rust 1.100.
+tsrs_lint = "=7.1.0-beta.tsrs5"
 # `onepage test`: a JavaScript engine in Rust, behind the off-by-default `test` feature.
 boa_engine = "0.22"
 

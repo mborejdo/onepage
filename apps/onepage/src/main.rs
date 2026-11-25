@@ -37,6 +37,13 @@ fn run(cli: Cli) -> anyhow::Result<u8> {
             return Ok(u8::from(lint.errors() > 0));
         },
         Command::New { name } => println!("{}", onepage::new_page::run(&name)?),
+        #[cfg(feature = "types")]
+        Command::Types { dir } => {
+            let types = onepage::types(&dir)?;
+            print!("{types}");
+            println!("{} errors, 0 warnings", types.errors());
+            return Ok(u8::from(types.errors() > 0));
+        },
         #[cfg(feature = "test")]
         Command::Test { dir } => {
             let page = onepage::config::Config::load(&dir)?.page(&dir, false);

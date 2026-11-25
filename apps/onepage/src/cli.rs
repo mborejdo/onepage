@@ -75,6 +75,23 @@ Exit codes:
   1  at least one test failed
   2  onepage could not do what you asked (the reason on stderr)";
 
+/// The end of `onepage types --help`.
+#[cfg(feature = "types")]
+const TYPES_FOOTER: &str = "\
+Examples:
+  onepage types hello               one `file:line: error|note: code: message` line per finding
+
+The program is the page's own sources, its [imports] and vendored typings and Preact's; the
+codes are tsc's (TS2322) and the type-aware rules' (typescript/no-floating-promises). `lint` and
+`build` run the same checks. A `[types]` table in onepage.toml is the ratchet: per code, how many
+findings the page may have (TS2322 = 3); a code over its count is an error, and without the
+table every finding is a note.
+
+Exit codes:
+  0  no code over its [types] count
+  1  at least one
+  2  onepage could not do what you asked (the reason on stderr)";
+
 /// The `onepage` command line.
 #[derive(Debug, Parser)]
 #[command(name = "onepage", version, about = ABOUT, after_help = ROOT_FOOTER)]
@@ -121,6 +138,14 @@ pub(crate) enum Command {
     New {
         /// The folder to create.
         name: PathBuf,
+    },
+    /// Type-check the page's sources with tsrs (the TypeScript 7 checker in Rust).
+    #[cfg(feature = "types")]
+    #[command(after_help = TYPES_FOOTER)]
+    Types {
+        /// The page's folder.
+        #[arg(default_value = ".")]
+        dir: PathBuf,
     },
     /// Run the page's `src/**/*.test.ts` files in an embedded JavaScript engine.
     #[cfg(feature = "test")]

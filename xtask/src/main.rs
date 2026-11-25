@@ -187,23 +187,45 @@ fn without_source_map(js: &[u8]) -> Result<Vec<u8>> {
     Ok(format!("{body}\n").into_bytes())
 }
 
+/// Preact's typings for `onepage types`, by their path in the npm package; written under
+/// `packages/pagekit/assets/types/preact/` as they are.
+const PREACT_TYPES: [&str; 5] = [
+    "src/index.d.ts",
+    "src/jsx.d.ts",
+    "src/dom.d.ts",
+    "hooks/src/index.d.ts",
+    "jsx-runtime/src/index.d.ts",
+];
+
 fn preact(pin: &Source) -> Result<Files> {
+    let tgz = pin.fetch()?;
     let [umd, hooks, license] = untar(
-        &pin.fetch()?,
+        &tgz,
         [
             "package/dist/preact.umd.js",
             "package/hooks/dist/hooks.umd.js",
             "package/LICENSE",
         ],
     )?;
+    let types = untar(
+        &tgz,
+        PREACT_TYPES
+            .map(|p| format!("package/{p}"))
+            .each_ref()
+            .map(String::as_str),
+    )?;
     let mut notice = format!(
         "preact.umd.js and hooks.umd.js are Preact {} (dist/preact.umd.js and\n\
          hooks/dist/hooks.umd.js from the npm package), with the\n\
-         sourceMappingURL comment removed.\n\n",
+         sourceMappingURL comment removed; types/preact/ holds its typings as they are.\n\n",
         pin.version
     )
     .into_bytes();
     notice.extend(license);
+    let typings = PREACT_TYPES
+        .iter()
+        .zip(types)
+        .map(|(p, bytes)| (format!("packages/pagekit/assets/types/preact/{p}"), bytes));
     Ok(Files::from([
         (
             "packages/pagekit/assets/preact.umd.js".into(),
@@ -214,7 +236,10 @@ fn preact(pin: &Source) -> Result<Files> {
             without_source_map(&hooks)?,
         ),
         ("packages/pagekit/assets/LICENSE-preact".into(), notice),
-    ]))
+    ])
+    .into_iter()
+    .chain(typings)
+    .collect())
 }
 
 /// `alert-triangle` to `alertTriangle`.
@@ -398,7 +423,11 @@ fn assets(name: Option<&str>, check: bool) -> Result<()> {
             "changed"
         };
         println!("{state:>7} {file}");
-        fs::write(root.join(file), bytes).with_context(|| format!("write {file}"))?;
+        let target = root.join(file);
+        if let Some(dir) = target.parent() {
+            fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+        }
+        fs::write(target, bytes).with_context(|| format!("write {file}"))?;
         out.insert(file.clone(), hash);
     }
     let (pins, _) = text

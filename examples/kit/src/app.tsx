@@ -273,11 +273,11 @@ function Host() {
             <Button
               key="echo"
               shape="text"
-              onClick={() =>
-                callTool("echo", { said: "hello" }).then((r) =>
-                  setEcho(JSON.stringify(r.structuredContent)),
-                )
-              }
+              onClick={() => {
+                void callTool("echo", { said: "hello" })
+                  .then((r) => setEcho(JSON.stringify(r.structuredContent)))
+                  .catch((e: unknown) => setEcho(String(e)));
+              }}
             >
               call it
             </Button>,

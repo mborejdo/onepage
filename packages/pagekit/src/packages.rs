@@ -29,6 +29,10 @@ const EXTENSIONS: &[&str] = &["ts", "tsx", "js", "mjs", "jsx"];
 /// a browser.
 const CONDITIONS: &[&str] = &["browser", "import", "module", "default"];
 
+/// The conditions for a package's typings, for `onepage types`: `types` first, then the
+/// bundle's.
+const TYPE_CONDITIONS: &[&str] = &["types", "browser", "import", "module", "default"];
+
 /// Where bare imports resolve: the import map and the vendor folder, as absolute paths.
 #[derive(Debug, Clone, Default)]
 pub struct Imports {
@@ -95,7 +99,32 @@ impl Imports {
         if !dir.join("package.json").is_file() {
             return Ok(None);
         }
-        package(&dir, sub).map(Some)
+        package(&dir, sub, CONDITIONS).map(Some)
+    }
+
+    /// The typings of a bare `spec`: a mapped target as it resolves (its TypeScript sources),
+    /// a vendored package's `types` (by its `exports`, else `types`/`typings`), or the `.d.ts`
+    /// next to the JavaScript it resolves to. `None` when there are none.
+    #[must_use]
+    pub fn types(&self, spec: &str) -> Option<PathBuf> {
+        let (name, sub) = split(spec);
+        if self.map.contains_key(spec) || self.map.contains_key(name) {
+            return self.resolve(spec).ok().flatten();
+        }
+        let dir = self.vendor.as_ref()?.join(name);
+        let found = package(&dir, sub, TYPE_CONDITIONS).ok()?;
+        let text = found.to_string_lossy();
+        if text.ends_with(".ts") || text.ends_with(".tsx") || text.ends_with(".d.mts") {
+            return Some(found);
+        }
+        let stem = text
+            .strip_suffix(".js")
+            .or_else(|| text.strip_suffix(".mjs"))
+            .or_else(|| text.strip_suffix(".cjs"))?;
+        ["d.ts", "d.mts"]
+            .iter()
+            .map(|ext| PathBuf::from(format!("{stem}.{ext}")))
+            .find(|p| p.is_file())
     }
 }
 
@@ -137,11 +166,11 @@ fn mapped(target: &Path, sub: &str) -> Result<PathBuf> {
     if !target.is_dir() {
         bail!("[imports]: {} does not exist", target.display());
     }
-    package(target, sub)
+    package(target, sub, CONDITIONS)
 }
 
 /// The file `sub` (or the entry, for `""`) of the package in `dir`.
-fn package(dir: &Path, sub: &str) -> Result<PathBuf> {
+fn package(dir: &Path, sub: &str, conditions: &[&str]) -> Result<PathBuf> {
     let manifest = dir.join("package.json");
     let json: Value = if manifest.is_file() {
         let text = std::fs::read_to_string(&manifest)
@@ -156,14 +185,19 @@ fn package(dir: &Path, sub: &str) -> Result<PathBuf> {
         format!("./{sub}")
     };
     let target = if let Some(exports) = json.get("exports") {
-        export(exports, &key).with_context(|| {
+        export(exports, &key, conditions).with_context(|| {
             format!(
                 "{} does not export `{key}` for a browser module",
                 manifest.display()
             )
         })?
     } else if sub.is_empty() {
-        ["module", "main"]
+        let fields: &[&str] = if conditions.first() == Some(&"types") {
+            &["types", "typings", "module", "main"]
+        } else {
+            &["module", "main"]
+        };
+        fields
             .iter()
             .find_map(|k| json.get(k).and_then(Value::as_str))
             .unwrap_or("index")
@@ -176,31 +210,31 @@ fn package(dir: &Path, sub: &str) -> Result<PathBuf> {
 }
 
 /// The target of `key` (`.` or `./sub`) in an `exports` value.
-fn export(exports: &Value, key: &str) -> Option<String> {
+fn export(exports: &Value, key: &str, conditions: &[&str]) -> Option<String> {
     match exports {
         Value::Object(map) if map.keys().any(|k| k.starts_with('.')) => {
             if let Some(value) = map.get(key) {
-                return condition(value);
+                return condition(value, conditions);
             }
             map.iter().find_map(|(pattern, value)| {
                 let (prefix, suffix) = pattern.split_once('*')?;
                 let stem = key.strip_prefix(prefix)?.strip_suffix(suffix)?;
-                condition(value).map(|t| t.replace('*', stem))
+                condition(value, conditions).map(|t| t.replace('*', stem))
             })
         },
-        _ if key == "." => condition(exports),
+        _ if key == "." => condition(exports, conditions),
         _ => None,
     }
 }
 
-/// A conditional target, reduced to a path by [`CONDITIONS`].
-fn condition(value: &Value) -> Option<String> {
+/// A conditional target, reduced to a path by `conditions`, in order.
+fn condition(value: &Value, conditions: &[&str]) -> Option<String> {
     match value {
         Value::String(s) => Some(s.clone()),
-        Value::Array(list) => list.iter().find_map(condition),
-        Value::Object(map) => CONDITIONS
+        Value::Array(list) => list.iter().find_map(|v| condition(v, conditions)),
+        Value::Object(map) => conditions
             .iter()
-            .find_map(|c| map.get(*c).and_then(condition)),
+            .find_map(|c| map.get(*c).and_then(|v| condition(v, conditions))),
         _ => None,
     }
 }
@@ -284,5 +318,17 @@ mod tests {
         assert!(imports.resolve("a/private").is_err());
         assert!(imports.resolve("one/sub").is_err());
         assert_eq!(imports.kits().len(), 1);
+        write(&vendor.join("a/a.d.ts"), "export {};");
+        write(&vendor.join("@s/b/src/index.d.ts"), "export {};");
+        assert_eq!(imports.types("a"), Some(vendor.join("a/a.d.ts")));
+        assert_eq!(
+            imports.types("@s/b"),
+            Some(vendor.join("@s/b/src/index.d.ts"))
+        );
+        assert_eq!(imports.types("a/sub"), None);
+        assert_eq!(
+            imports.types("kit/mcp"),
+            Some(dir.join("kit/src/mcp/index.ts"))
+        );
     }
 }

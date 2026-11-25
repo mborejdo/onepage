@@ -7,7 +7,6 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-homepage.workspace = true
 publish.workspace = true
 readme = "README.md"
 keywords = ["preact", "bundler", "html", "csp", "rolldown"]
@@ -20,6 +19,8 @@ workspace = true
 default = []
 # `pagekit::test`: run `*.test.ts` files in boa, an embedded JavaScript engine.
 test = ["dep:boa_engine"]
+# `pagekit::types`: tsrs (the TypeScript 7 checker in Rust) over the page's sources.
+types = ["dep:tsrs_lint"]
 
 [dependencies]
 anyhow.workspace = true
@@ -43,4 +44,5 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tokio.workspace = true
+tsrs_lint = { workspace = true, optional = true }
 toml.workspace = true

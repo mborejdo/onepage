@@ -21,6 +21,8 @@ allow = [
     "Unlicense",
     # xxhash-rust, through rolldown: the Boost licence, permissive.
     "BSL-1.0",
+    # unicode-id-start 1.1.2 (tsrs_core pins it, Oxc shares it): Unicode's data licence, permissive.
+    "Unicode-DFS-2016",
 ]
 confidence-threshold = 0.9
 exceptions = []

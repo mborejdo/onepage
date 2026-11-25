@@ -43,7 +43,34 @@ pub fn report(e: &anyhow::Error) -> (String, u8) {
 /// would change is a finding; with `fix`, the safe fixes and the formatter are written back.
 pub fn lint(dir: &Path, fix: bool) -> Result<Report> {
     let config = Config::load(dir)?;
-    pagekit::lint::page(&config.page(dir, false), &config.rules()?, fix)
+    let mut report = pagekit::lint::page(&config.page(dir, false), &config.rules()?, fix)?;
+    with_types(&config, dir, &mut report)?;
+    Ok(report)
+}
+
+/// tsrs over the page in `dir` ([`pagekit::types::page`]), under its `[types]` ratchet.
+#[cfg(feature = "types")]
+pub fn types(dir: &Path) -> Result<Report> {
+    let config = Config::load(dir)?;
+    pagekit::types::page(&config.page(dir, false), config.types.as_ref())
+}
+
+/// The type checks' findings added to a lint's (with the `types` feature).
+#[cfg(feature = "types")]
+fn with_types(config: &Config, dir: &Path, report: &mut Report) -> Result<()> {
+    let types = pagekit::types::page(&config.page(dir, false), config.types.as_ref())?;
+    report.findings.extend(types.findings);
+    Ok(())
+}
+
+/// Without the `types` feature there are no type checks.
+#[cfg(not(feature = "types"))]
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "the same signature as with the `types` feature"
+)]
+const fn with_types(_: &Config, _: &Path, _: &mut Report) -> Result<()> {
+    Ok(())
 }
 
 /// Build the page in `dir` and write it to `out` (else the config's `out`), with the
@@ -53,7 +80,8 @@ pub fn lint(dir: &Path, fix: bool) -> Result<Report> {
 pub fn build(dir: &Path, out: Option<&Path>, minify: bool) -> Result<(PathBuf, Report)> {
     let config = Config::load(dir)?;
     config.check_theme(dir)?;
-    let lint = pagekit::lint::page(&config.page(dir, minify), &config.rules()?, true)?;
+    let mut lint = pagekit::lint::page(&config.page(dir, minify), &config.rules()?, true)?;
+    with_types(&config, dir, &mut lint)?;
     if lint.errors() > 0 {
         return Err(lint.into());
     }

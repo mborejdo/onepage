@@ -69,9 +69,14 @@ features = "ccmp,locl,mark,mkmk"
 epoch = 1795257888
 
 [out]
-"packages/pagekit/assets/LICENSE-preact" = "1f256d5e96856ab9c707b6b5f6fa22511fbcdc027e7ea6c09105d70d23a1f2db"
+"packages/pagekit/assets/LICENSE-preact" = "594006478c7772733497d9cb442f994ad86c88ecd77b107370c229f0ef1306b1"
 "packages/pagekit/assets/hooks.umd.js" = "bfc448a2a5480d3039af4a1ec75cde2320d2cab16191490f48a221478d71e7fc"
 "packages/pagekit/assets/preact.umd.js" = "34bfc5a48adf02706e03e88412ed77f3ae56402bd5788cdf4a4b562d683821f3"
+"packages/pagekit/assets/types/preact/hooks/src/index.d.ts" = "7687e1c892178a4674e162427319e47fb881ac1ae5fa4c50dcc3423870dba636"
+"packages/pagekit/assets/types/preact/jsx-runtime/src/index.d.ts" = "000776b76210c3b5afe490fbc24891a6b60a2b4fa64b0b36e214bdc05395a0c4"
+"packages/pagekit/assets/types/preact/src/dom.d.ts" = "54afc755a2e8c3290005a6f266467a8279a902e03a9c8ec8096c0fbaed3adb44"
+"packages/pagekit/assets/types/preact/src/index.d.ts" = "8ae1be898b0b0dff66a04adaf66ed0285aac1eb70135c20d1310c8e1b966baa5"
+"packages/pagekit/assets/types/preact/src/jsx.d.ts" = "6f61d487397ef4ad9da84c58a2a9ce9b018b07630c8305fef0d0e411500ee0bc"
 "packages/panelkit/LICENSE-tabler" = "b740a1d46122672da62833e97f7e7c8a13fa85cbc7445b584b297cc00dde93db"
 "packages/panelkit/fonts/LICENSE-fira-code" = "1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c"
 "packages/panelkit/fonts/LICENSE-inter" = "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"

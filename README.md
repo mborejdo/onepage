@@ -9,6 +9,7 @@ file, so it opens from disk, a static host or an email attachment. Pure Rust, no
 ```sh
 cargo install --path apps/onepage
 cargo install --path apps/onepage --features test   # adds `onepage test` (embeds boa)
+cargo install --path apps/onepage --features types  # adds `onepage types` (embeds tsrs, Rust 1.100+)
 ```
 
 Not on crates.io: Oxc ships its linter and formatter crates only as a git tag, which
@@ -22,6 +23,7 @@ onepage build hello               # hello/dist/index.html, minified (--out to ch
 onepage lint hello [--fix]        # Oxc lint and formatter; --fix writes safe fixes back
 onepage dev hello --port 8000     # rebuild on save, unminified, on http://127.0.0.1:8000/
 onepage test hello                # src/**/*.test.ts (`test` feature)
+onepage types hello               # tsc errors and type-aware rules (`types` feature)
 ```
 
 `dev` polls file times every 300 ms; `--port` adds a small `std::net` server. No live reload.
@@ -87,6 +89,29 @@ src/app.tsx:10: error: react/button-has-type: `button` elements must have a vali
 - `build` and `dev` fix and format first, so what's bundled is what's on disk. A lint error
   fails `build` before anything is written; `dev` keeps the last good page. Use `onepage lint`
   as the read-only CI gate.
+
+## Types
+
+With the `types` feature, [tsrs](https://github.com/oxc-project/tsrs) (the TypeScript 7 checker,
+ported to Rust) runs in process over the page's own sources: tsc's errors (`TS2322`) and the
+type-aware rules for promises and methods that fail without a trace - `no-floating-promises`,
+`no-misused-promises`, `await-thenable`, `unbound-method`, `switch-exhaustiveness-check`,
+`restrict-template-expressions` (as `typescript/<rule>`). The `tsconfig.json` is made in memory
+(strict, classic JSX under `h`/`Fragment`, the DOM libraries); bare imports get their types from
+`[imports]` (the sources) and `vendor` (each package's `types`), Preact's typings are inlined,
+and `test`/`assert` are declared for `*.test.ts`.
+
+`onepage types` prints the findings; `lint` and `build` add them to the lint's. `[types]` in
+`onepage.toml` is a ratchet, so an existing page is not blocked on day one:
+
+```toml
+[types]                      # per code, how many findings the page may have
+TS7006 = 9
+"typescript/no-floating-promises" = 1
+```
+
+A code over its count is an error (it fails `lint` and `build`); one under it gets a note to
+lower the count. Without the table every finding is a note.
 
 ## Config
 

@@ -1,6 +1,6 @@
 preact.umd.js and hooks.umd.js are Preact 10.29.7 (dist/preact.umd.js and
 hooks/dist/hooks.umd.js from the npm package), with the
-sourceMappingURL comment removed.
+sourceMappingURL comment removed; types/preact/ holds its typings as they are.
 
 The MIT License (MIT)
 

@@ -22,6 +22,8 @@ pub mod packages;
 #[cfg(feature = "test")]
 pub mod test;
 pub mod tokens;
+#[cfg(feature = "types")]
+pub mod types;
 
 use std::collections::BTreeMap;
 use std::fmt;
